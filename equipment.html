@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html class="light" lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Equipment Inventory | DryBox AI</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "primary": "#003178",
+                    "secondary": "#0061a4",
+                    "background": "#f7f9fc",
+                    "surface": "#f7f9fc",
+                    "on-surface": "#191c1e",
+                    "outline-variant": "#c3c6d4"
+            },
+            "fontFamily": {
+                    "display-lg": ["Space Grotesk"],
+                    "body-base": ["Inter"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-base">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white border-b border-slate-200">
+<div class="flex items-center gap-4">
+<span class="text-xl font-bold text-primary tracking-tighter font-display-lg">DryBox AI</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="flex items-center gap-4">
+<button class="text-slate-500 hover:bg-slate-50 p-2 rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary/10 overflow-hidden border border-outline-variant">
+<img alt="Admin" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChYrniWnbZ33du5rhAJI5nAjY-PHO_z-bsDMXGL28mBYfxQxAtuaFPYOKWKQng0CliRbmJBJervXtgwU3e8kdA2BFefG9Pr1KpLDlwHttC9WaGdoWn3wpWXGZ7r3Hr8j8KZf0nxhzcjkcVePjKChgmAKMnJu_m7Isrm666LrAmszTZo_zNpSnXZj1X_kvmDSSy2PX5VpG5bnP4m9H8rOAAThotXAlZ-HHFvj3j2kaR0x7QQpZTJb_VtA_dXJmhP4cPkcbfdb8bvKk"/>
+</div>
+</div>
+</div>
+</header>
+
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col fixed left-0 top-0 h-full z-40 pt-20 pb-6 w-64 bg-white border-r border-slate-200 font-display-lg text-sm font-medium">
+<div class="px-6 mb-8">
+<h2 class="text-lg font-black text-primary tracking-tight">Precision Monitor</h2>
+<p class="text-[10px] text-slate-400 uppercase tracking-widest">AI-Powered Integrity</p>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-all" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 bg-blue-50 text-primary border-r-4 border-primary font-semibold transition-all" href="equipment.html">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+                Equipment
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-all" href="analytics.html">
+<span class="material-symbols-outlined">insights</span>
+                Analytics
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 hover:bg-slate-50 rounded-lg transition-all" href="settings.html">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</nav>
+</aside>
+
+<main class="lg:ml-64 pt-24 pb-12 px-8 max-w-7xl mx-auto">
+<div class="flex justify-between items-end mb-10">
+<div>
+<h1 class="font-display-lg text-3xl font-bold text-primary mb-2">Equipment Inventory</h1>
+<p class="text-slate-500">Manage and monitor all dry storage units in your facility.</p>
+</div>
+<button class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold flex items-center gap-2 hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-sm">add</span>
+            Register New Unit
+        </button>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- Equipment Item 1 -->
+<div class="bg-white border border-outline-variant rounded-xl p-6 hover:shadow-md transition-shadow">
+<div class="flex justify-between mb-4">
+<span class="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">CONNECTED</span>
+<button class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<h3 class="font-display-lg text-xl font-bold text-primary mb-1">BOX-A244</h3>
+<p class="text-sm text-slate-500 mb-6">Location: Lab A - Shelf 2</p>
+<div class="space-y-4">
+<div class="flex justify-between text-sm">
+<span class="text-slate-500">Last Maintenance</span>
+<span class="font-semibold">Oct 24, 2024</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-slate-500">Desiccant Status</span>
+<span class="text-emerald-600 font-semibold">92% Health</span>
+</div>
+</div>
+<button class="w-full mt-6 py-2 bg-slate-50 text-primary font-bold text-sm rounded-lg hover:bg-primary/5 transition-colors">View Details</button>
+</div>
+
+<!-- Equipment Item 2 -->
+<div class="bg-white border border-outline-variant rounded-xl p-6 hover:shadow-md transition-shadow">
+<div class="flex justify-between mb-4">
+<span class="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded">MAINTENANCE DUE</span>
+<button class="text-slate-400 hover:text-primary"><span class="material-symbols-outlined">more_vert</span></button>
+</div>
+<h3 class="font-display-lg text-xl font-bold text-primary mb-1">BOX-S012</h3>
+<p class="text-sm text-slate-500 mb-6">Location: Studio 1 - Main Rack</p>
+<div class="space-y-4">
+<div class="flex justify-between text-sm">
+<span class="text-slate-500">Last Maintenance</span>
+<span class="font-semibold">Aug 12, 2024</span>
+</div>
+<div class="flex justify-between text-sm">
+<span class="text-slate-500">Desiccant Status</span>
+<span class="text-amber-600 font-semibold">12% Health</span>
+</div>
+</div>
+<button class="w-full mt-6 py-2 bg-slate-50 text-primary font-bold text-sm rounded-lg hover:bg-primary/5 transition-colors">View Details</button>
+</div>
+
+<!-- Add more items as needed -->
+</div>
+</main>
+
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 bg-white border-t border-slate-200">
+<a class="flex flex-col items-center justify-center text-slate-400" href="dashboard.html">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px] uppercase">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary bg-blue-50 rounded-lg py-1 px-3" href="equipment.html">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">grid_view</span>
+<span class="text-[10px] uppercase font-bold">Units</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400" href="analytics.html">
+<span class="material-symbols-outlined">query_stats</span>
+<span class="text-[10px] uppercase">Data</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400" href="settings.html">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] uppercase">Settings</span>
+</a>
+</nav>
+</body>
+</html>

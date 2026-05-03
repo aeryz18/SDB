@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>DryBox AI - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-fixed": "#001d36",
+                        "primary-fixed-dim": "#b0c6ff",
+                        "inverse-surface": "#2d3133",
+                        "surface-variant": "#e0e3e6",
+                        "on-secondary": "#ffffff",
+                        "inverse-on-surface": "#eff1f4",
+                        "primary-fixed": "#d9e2ff",
+                        "on-tertiary-container": "#7cc3ff",
+                        "on-secondary-fixed-variant": "#00497d",
+                        "on-tertiary-fixed-variant": "#004b74",
+                        "on-background": "#191c1e",
+                        "background": "#f7f9fc",
+                        "surface": "#f7f9fc",
+                        "surface-bright": "#f7f9fc",
+                        "outline": "#737783",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#003859",
+                        "on-surface-variant": "#434652",
+                        "surface-container-high": "#e6e8eb",
+                        "tertiary-fixed-dim": "#94ccff",
+                        "tertiary-container": "#00507c",
+                        "on-primary-container": "#a1bbff",
+                        "on-secondary-container": "#00355c",
+                        "on-primary-fixed": "#001945",
+                        "primary-container": "#0d47a1",
+                        "surface-container-highest": "#e0e3e6",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed-variant": "#00429c",
+                        "secondary-fixed-dim": "#9ecaff",
+                        "surface-container": "#eceef1",
+                        "on-tertiary-fixed": "#001d32",
+                        "surface-dim": "#d8dadd",
+                        "secondary": "#0061a4",
+                        "surface-tint": "#2b5bb5",
+                        "surface-container-low": "#f2f4f7",
+                        "on-primary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#cde5ff",
+                        "on-error": "#ffffff",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#d1e4ff",
+                        "secondary-container": "#33a0fd",
+                        "inverse-primary": "#b0c6ff",
+                        "on-error-container": "#93000a",
+                        "primary": "#003178",
+                        "outline-variant": "#c3c6d4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "md": "24px",
+                        "grid-gutter": "24px",
+                        "base": "8px",
+                        "sm": "12px",
+                        "lg": "40px",
+                        "xl": "64px",
+                        "container-margin": "32px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Space Grotesk"],
+                        "body-sm": ["Inter"],
+                        "title-sm": ["Inter"],
+                        "headline-md": ["Space Grotesk"],
+                        "body-base": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "data-num": ["Space Grotesk"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "title-sm": ["18px", {"lineHeight": "1.5", "fontWeight": "600"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                        "body-base": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                        "label-caps": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "700"}],
+                        "data-num": ["48px", {"lineHeight": "1", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f7f9fc;
+        }
+    </style>
+</head>
+<body class="text-on-background">
+<!-- TopNavBar Shell -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-4">
+<span class="text-xl font-bold text-blue-900 dark:text-blue-200 tracking-tighter font-['Space_Grotesk']">DryBox AI</span>
+</div>
+<div class="flex items-center gap-6">
+<div class="hidden md:flex gap-8 items-center font-['Space_Grotesk'] text-sm tracking-tight">
+<a class="text-blue-700 dark:text-blue-400 font-semibold border-b-2 border-blue-700" href="dashboard.html">Dashboard</a>
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="equipment.html">Equipment</a>
+<a class="text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors" href="analytics.html">Analytics</a>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden ml-2 border border-slate-200">
+<img alt="Administrator Profile" data-alt="A professional headshot of a technology administrator in a bright, modern office setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChYrniWnbZ33du5rhAJI5nAjY-PHO_z-bsDMXGL28mBYfxQxAtuaFPYOKWKQng0CliRbmJBJervXtgwU3e8kdA2BFefG9Pr1KpLDlwHttC9WaGdoWn3wpWXGZ7r3Hr8j8KZf0nxhzcjkcVePjKChgmAKMnJu_m7Isrm666LrAmszTZo_zNpSnXZj1X_kvmDSSy2PX5VpG5bnP4m9H8rOAAThotXAlZ-HHFvj3j2kaR0x7QQpZTJb_VtA_dXJmhP4cPkcbfdb8bvKk"/>
+</div>
+</div>
+</div>
+</header>
+<!-- SideNavBar Shell -->
+<aside class="hidden lg:flex flex-col fixed left-0 top-0 h-full z-40 pt-20 pb-6 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 font-['Space_Grotesk'] text-sm font-medium">
+<div class="px-6 mb-8">
+<h2 class="text-lg font-black text-blue-900 dark:text-blue-100">Precision Monitor</h2>
+<p class="text-[10px] uppercase tracking-widest text-slate-400">AI-Powered Integrity</p>
+</div>
+<nav class="flex-1 space-y-1 px-4">
+<a class="flex items-center gap-3 px-4 py-3 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 border-r-4 border-blue-800 transition-all scale-[0.98]" href="dashboard.html">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-700 transition-all" href="equipment.html">
+<span class="material-symbols-outlined">inventory_2</span>
+                Equipment
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-700 transition-all" href="analytics.html">
+<span class="material-symbols-outlined">insights</span>
+                Analytics
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-blue-700 transition-all" href="settings.html">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</nav>
+<div class="px-4 mt-auto space-y-4">
+<button class="w-full py-3 bg-primary text-white rounded font-bold transition-all active:scale-[0.98]">
+                Add New Box
+            </button>
+<div class="border-t border-slate-100 dark:border-slate-800 pt-4">
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-blue-700 transition-colors" href="#">
+<span class="material-symbols-outlined">contact_support</span>
+                    Support
+                </a>
+<a class="flex items-center gap-3 px-4 py-2 text-slate-500 hover:text-blue-700 transition-colors" href="#">
+<span class="material-symbols-outlined">history</span>
+                    Logs
+                </a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:pl-64 pt-20 pb-24 lg:pb-8 px-container-margin">
+<div class="max-w-7xl mx-auto space-y-md">
+<!-- Dashboard Header & Action -->
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
+<div>
+<h1 class="font-display-lg text-display-lg text-primary">System Dashboard</h1>
+<p class="font-body-base text-body-base text-on-surface-variant">Monitoring 12 dry storage units across 2 facilities.</p>
+</div>
+<button class="flex items-center justify-center gap-2 bg-secondary text-on-secondary px-6 py-3 rounded-xl font-bold transition-all hover:shadow-lg active:scale-95">
+<span class="material-symbols-outlined">add_circle</span>
+                    Add New Box
+                </button>
+</div>
+<!-- Alerts Summary Bento -->
+<section class="grid grid-cols-1 md:grid-cols-3 gap-grid-gutter">
+<div class="md:col-span-2 bg-error-container/20 border border-error/20 p-md rounded-xl flex items-start gap-4">
+<div class="p-3 bg-error rounded-full text-on-error">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-error-container">Critical Alert: Box 4</h3>
+<p class="font-body-sm text-body-sm text-on-error-container mt-1">Humidity has exceeded 45% for over 30 minutes. Silica saturation suspected.</p>
+<div class="mt-4 flex gap-3">
+<button class="px-4 py-2 bg-error text-on-error font-bold text-xs rounded-lg uppercase tracking-wider">Inspect Box</button>
+<button class="px-4 py-2 bg-white/50 text-on-error-container font-bold text-xs rounded-lg uppercase tracking-wider border border-error/10">Dismiss</button>
+</div>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-md rounded-xl flex flex-col justify-between">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">SYSTEM STATUS</span>
+<div class="flex items-center gap-2 mt-2">
+<div class="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
+<span class="font-headline-md text-headline-md text-on-surface">Optimal</span>
+</div>
+</div>
+<div class="mt-4 border-t border-outline-variant pt-4 flex justify-between items-center">
+<span class="font-body-sm text-body-sm text-on-surface-variant">Last Backup: 12m ago</span>
+<span class="material-symbols-outlined text-secondary">cloud_done</span>
+</div>
+</div>
+</section>
+<!-- Grid of Dry Box Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-grid-gutter">
+<!-- Box Card 1 -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+<div class="h-1 bg-emerald-500"></div>
+<div class="p-md space-y-md">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline-md text-headline-md text-primary">Box 1</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Leica Prime Storage</p>
+</div>
+<span class="px-3 py-1 bg-emerald-100 text-emerald-800 font-label-caps text-[10px] rounded-full">SAFE</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-data-num text-data-num text-on-background">22<span class="text-2xl">%</span></span>
+<div class="pb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant block">HUMIDITY</span>
+<div class="w-32 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-emerald-500 w-[22%]"></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">TEMP</span>
+<p class="font-title-sm text-title-sm text-on-surface">19.5 °C</p>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">SILICA LIFE</span>
+<p class="font-title-sm text-title-sm text-on-surface">45 Days</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Box Card 2 -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+<div class="h-1 bg-amber-500"></div>
+<div class="p-md space-y-md">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline-md text-headline-md text-primary">Box 2</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Macro Lens Archive</p>
+</div>
+<span class="px-3 py-1 bg-amber-100 text-amber-800 font-label-caps text-[10px] rounded-full">WARNING</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-data-num text-data-num text-on-background">38<span class="text-2xl">%</span></span>
+<div class="pb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant block">HUMIDITY</span>
+<div class="w-32 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-amber-500 w-[38%]"></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">TEMP</span>
+<p class="font-title-sm text-title-sm text-on-surface">21.2 °C</p>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">SILICA LIFE</span>
+<p class="font-title-sm text-title-sm text-amber-700">8 Days</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Box Card 3 (Critical) -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+<div class="h-1 bg-error"></div>
+<div class="p-md space-y-md">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline-md text-headline-md text-primary">Box 4</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Main Body Vault</p>
+</div>
+<span class="px-3 py-1 bg-error-container text-on-error-container font-label-caps text-[10px] rounded-full">CRITICAL</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-data-num text-data-num text-error">48<span class="text-2xl">%</span></span>
+<div class="pb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant block">HUMIDITY</span>
+<div class="w-32 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-error w-[48%]"></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">TEMP</span>
+<p class="font-title-sm text-title-sm text-on-surface">24.8 °C</p>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">SILICA LIFE</span>
+<p class="font-title-sm text-title-sm text-error">EXPIRED</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Box Card 4 -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+<div class="h-1 bg-emerald-500"></div>
+<div class="p-md space-y-md">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline-md text-headline-md text-primary">Box 5</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Sony Alpha Kit</p>
+</div>
+<span class="px-3 py-1 bg-emerald-100 text-emerald-800 font-label-caps text-[10px] rounded-full">SAFE</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-data-num text-data-num text-on-background">18<span class="text-2xl">%</span></span>
+<div class="pb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant block">HUMIDITY</span>
+<div class="w-32 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-emerald-500 w-[18%]"></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">TEMP</span>
+<p class="font-title-sm text-title-sm text-on-surface">18.1 °C</p>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">SILICA LIFE</span>
+<p class="font-title-sm text-title-sm text-on-surface">112 Days</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Box Card 5 -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+<div class="h-1 bg-emerald-500"></div>
+<div class="p-md space-y-md">
+<div class="flex justify-between items-start">
+<div>
+<h4 class="font-headline-md text-headline-md text-primary">Box 6</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Vintage Glass</p>
+</div>
+<span class="px-3 py-1 bg-emerald-100 text-emerald-800 font-label-caps text-[10px] rounded-full">SAFE</span>
+</div>
+<div class="flex items-end gap-2">
+<span class="font-data-num text-data-num text-on-background">25<span class="text-2xl">%</span></span>
+<div class="pb-2">
+<span class="font-label-caps text-label-caps text-on-surface-variant block">HUMIDITY</span>
+<div class="w-32 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
+<div class="h-full bg-emerald-500 w-[25%]"></div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">TEMP</span>
+<p class="font-title-sm text-title-sm text-on-surface">20.0 °C</p>
+</div>
+<div>
+<span class="font-label-caps text-label-caps text-on-surface-variant">SILICA LIFE</span>
+<p class="font-title-sm text-title-sm text-on-surface">32 Days</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Add New Box Ghost Card -->
+<div class="border-2 border-dashed border-outline-variant rounded-xl flex flex-col items-center justify-center p-md text-on-surface-variant hover:bg-slate-50 transition-colors cursor-pointer group">
+<div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-4xl">add</span>
+</div>
+<span class="font-headline-md text-headline-md">Add New Unit</span>
+<p class="font-body-sm text-body-sm mt-1">Configure a new AI sensor</p>
+</div>
+</section>
+</div>
+</main>
+<!-- BottomNavBar Shell -->
+<nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_12px_rgba(0,0,0,0.05)] font-['Space_Grotesk'] text-[10px] uppercase tracking-widest tap-highlight-transparent">
+<a class="flex flex-col items-center justify-center text-blue-800 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 rounded-lg py-1 px-3 transition-transform duration-75" href="dashboard.html">
+<span class="material-symbols-outlined mb-1">home</span>
+            Home
+        </a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 active:bg-slate-100 transition-transform duration-75" href="equipment.html">
+<span class="material-symbols-outlined mb-1">grid_view</span>
+            Units
+        </a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 active:bg-slate-100 transition-transform duration-75" href="analytics.html">
+<span class="material-symbols-outlined mb-1">query_stats</span>
+            Data
+        </a>
+<a class="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 active:bg-slate-100 transition-transform duration-75" href="settings.html">
+<span class="material-symbols-outlined mb-1">settings</span>
+            Settings
+        </a>
+</nav>
+</body></html>
