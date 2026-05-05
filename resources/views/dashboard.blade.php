@@ -4,171 +4,302 @@
 
 @section('content')
 <div class="max-w-7xl mx-auto space-y-md">
-    <!-- Dashboard Header & Action -->
+
+    {{-- ── Page Header ────────────────────────────────────────────── --}}
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
         <div>
             <h1 class="font-display-lg text-display-lg text-primary">System Dashboard</h1>
-            <p class="font-body-base text-body-base text-on-surface-variant">Monitoring <span id="total-units-count">12</span> dry storage units across 2 facilities.</p>
+            <p class="font-body-base text-body-base text-on-surface-variant">
+                Live monitoring — Smart Dry Box Sensor
+            </p>
         </div>
-        <button class="flex items-center justify-center gap-2 bg-secondary text-on-secondary px-6 py-3 rounded-xl font-bold transition-all hover:shadow-lg active:scale-95">
-            <span class="material-symbols-outlined">add_circle</span>
-            Add New Box
-        </button>
+
+        {{-- Connection Status Badge --}}
+        <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-outline-variant rounded-xl self-start">
+            <div class="w-2.5 h-2.5 rounded-full bg-slate-300 animate-pulse" id="live-dot"></div>
+            <span class="text-sm font-semibold text-slate-500" id="connection-status">Connecting…</span>
+        </div>
     </div>
 
-    <!-- Alerts Summary Bento -->
+    {{-- ── Dynamic Alert Banner (hidden until data arrives) ──────── --}}
+    <section id="alert-banner" class="hidden" aria-live="polite"></section>
+
+    {{-- ── Live Sensor Stat Cards ─────────────────────────────────── --}}
     <section class="grid grid-cols-1 md:grid-cols-3 gap-grid-gutter">
-        <div class="md:col-span-2 bg-error-container/20 border border-error/20 p-md rounded-xl flex items-start gap-4">
-            <div class="p-3 bg-error rounded-full text-on-error">
-                <span class="material-symbols-outlined">warning</span>
-            </div>
-            <div>
-                <h3 class="font-headline-md text-headline-md text-on-error-container">Critical Alert: Box 4</h3>
-                <p class="font-body-sm text-body-sm text-on-error-container mt-1">Humidity has exceeded 45% for over 30 minutes. Silica saturation suspected.</p>
-                <div class="mt-4 flex gap-3">
-                    <button class="px-4 py-2 bg-error text-on-error font-bold text-xs rounded-lg uppercase tracking-wider">Inspect Box</button>
-                    <button class="px-4 py-2 bg-white/50 text-on-error-container font-bold text-xs rounded-lg uppercase tracking-wider border border-error/10">Dismiss</button>
+
+        {{-- Temperature --}}
+        <div class="bg-white border border-outline-variant rounded-xl p-md hover:shadow-md transition-shadow group">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <span class="font-label-caps text-label-caps text-on-surface-variant block">TEMPERATURE</span>
+                    <div class="flex items-end gap-1 mt-2">
+                        <span class="font-data-num text-data-num text-on-background leading-none transition-all" id="temp-value">--</span>
+                        <span class="text-2xl font-semibold text-outline mb-1">°C</span>
+                    </div>
                 </div>
+                <div class="p-3 bg-orange-50 rounded-xl group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-orange-500">thermostat</span>
+                </div>
+            </div>
+            <div class="pt-4 border-t border-slate-100 flex items-center gap-1.5 text-xs text-on-surface-variant">
+                <span class="material-symbols-outlined text-xs" style="font-size:14px">schedule</span>
+                Updated: <span id="temp-time">--</span>
             </div>
         </div>
-        <div class="bg-surface-container-low border border-outline-variant p-md rounded-xl flex flex-col justify-between">
-            <div>
-                <span class="font-label-caps text-label-caps text-on-surface-variant">SYSTEM STATUS</span>
-                <div class="flex items-center gap-2 mt-2">
-                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-500" id="global-status-indicator"></div>
-                    <span class="font-headline-md text-headline-md text-on-surface" id="global-status-text">Optimal</span>
+
+        {{-- Humidity --}}
+        <div class="bg-white border border-outline-variant rounded-xl p-md hover:shadow-md transition-shadow group">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <span class="font-label-caps text-label-caps text-on-surface-variant block">HUMIDITY</span>
+                    <div class="flex items-end gap-1 mt-2">
+                        <span class="font-data-num text-data-num text-on-background leading-none transition-all" id="hum-value">--</span>
+                        <span class="text-2xl font-semibold text-outline mb-1">%</span>
+                    </div>
+                </div>
+                <div class="p-3 bg-blue-50 rounded-xl group-hover:scale-110 transition-transform">
+                    <span class="material-symbols-outlined text-blue-500">water_drop</span>
                 </div>
             </div>
-            <div class="mt-4 border-t border-outline-variant pt-4 flex justify-between items-center">
-                <span class="font-body-sm text-body-sm text-on-surface-variant">Last Update: <span id="last-update-time">Just now</span></span>
-                <span class="material-symbols-outlined text-secondary">cloud_done</span>
+            <div class="pt-4 border-t border-slate-100">
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-blue-500 transition-all duration-1000 rounded-full" id="hum-bar" style="width:0%"></div>
+                </div>
+                <p class="text-xs text-on-surface-variant mt-1">Relative Humidity Level</p>
             </div>
+        </div>
+
+        {{-- Status --}}
+        <div class="bg-white border border-outline-variant rounded-xl p-md hover:shadow-md transition-shadow group">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <span class="font-label-caps text-label-caps text-on-surface-variant block">STATUS</span>
+                    <div class="mt-2">
+                        <span class="font-headline-md text-headline-md text-on-surface" id="status-value">--</span>
+                    </div>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-xl group-hover:scale-110 transition-transform" id="status-icon-wrap">
+                    <span class="material-symbols-outlined text-slate-400" id="status-icon">sensors</span>
+                </div>
+            </div>
+            <div class="pt-4 border-t border-slate-100 flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-slate-300" id="status-dot"></div>
+                <span class="text-xs text-on-surface-variant" id="status-sub">Waiting for data…</span>
+            </div>
+        </div>
+
+    </section>
+
+    {{-- ── Real-Time Humidity Chart ─────────────────────────────── --}}
+    <section class="bg-white border border-outline-variant rounded-xl p-md">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+            <div>
+                <h3 class="font-headline-md text-headline-md text-on-surface">Live Humidity Trend</h3>
+                <p class="font-body-sm text-body-sm text-on-surface-variant">Real-time readings from Firebase (last 20 points)</p>
+            </div>
+            <span class="flex items-center gap-2 text-xs text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                Live
+            </span>
+        </div>
+        <div class="relative h-64">
+            <canvas id="humidity-chart"></canvas>
         </div>
     </section>
 
-    <!-- Grid of Dry Box Cards -->
-    <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-grid-gutter" id="boxes-container">
-        <div class="col-span-full py-20 flex flex-col items-center justify-center text-slate-400">
-            <div class="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
-            <p class="font-headline-md">Connecting to AI sensor network...</p>
+    {{-- ── Connection Footer ────────────────────────────────────── --}}
+    <section class="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-surface-container-low border border-outline-variant rounded-xl p-md gap-4">
+        <div class="flex items-center gap-3">
+            <span class="material-symbols-outlined text-secondary">cloud_sync</span>
+            <div>
+                <span class="font-label-caps text-label-caps text-on-surface-variant block">FIREBASE REALTIME DATABASE</span>
+                <span class="font-body-sm text-body-sm text-on-surface font-mono text-xs">iot-project-1d0fa-default-rtdb.firebaseio.com</span>
+            </div>
+        </div>
+        <div class="text-left sm:text-right">
+            <span class="font-label-caps text-label-caps text-on-surface-variant block">LAST READING</span>
+            <span class="font-body-sm text-body-sm text-on-surface font-semibold" id="last-update-time">--</span>
         </div>
     </section>
+
 </div>
 @endsection
 
 @section('scripts')
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+{{-- Firebase 9 compat + Chart.js --}}
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
 <script>
-    const firebaseConfig = {
-        apiKey: "AIzaSyB_k8H2jL9mN4oP3qR1sT5uV7wX9yZ",
-        databaseURL: "https://drybox-ai-default-rtdb.firebaseio.com",
-    };
+  // ── Firebase Init ──────────────────────────────────────────────
+  const firebaseConfig = {
+    apiKey:      "{{ config('firebase.api_key') }}",
+    databaseURL: "{{ config('firebase.database_url') }}",
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
 
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    const database = firebase.database();
+  // ── Thresholds (synced from Settings page via localStorage) ───
+  const CRIT_THRESH = parseInt(localStorage.getItem('critThreshold') ?? 45);
+  const WARN_THRESH = parseInt(localStorage.getItem('warnThreshold') ?? 35);
 
-    const boxesContainer = document.getElementById('boxes-container');
-    const totalUnitsCount = document.getElementById('total-units-count');
-    const lastUpdateTime = document.getElementById('last-update-time');
-    const globalStatusIndicator = document.getElementById('global-status-indicator');
-    const globalStatusText = document.getElementById('global-status-text');
+  // ── DOM refs ───────────────────────────────────────────────────
+  const tempEl        = document.getElementById('temp-value');
+  const tempTimeEl    = document.getElementById('temp-time');
+  const humEl         = document.getElementById('hum-value');
+  const humBar        = document.getElementById('hum-bar');
+  const statusEl      = document.getElementById('status-value');
+  const statusDot     = document.getElementById('status-dot');
+  const statusSub     = document.getElementById('status-sub');
+  const statusIcon    = document.getElementById('status-icon');
+  const statusIconWrap= document.getElementById('status-icon-wrap');
+  const lastUpdateEl  = document.getElementById('last-update-time');
+  const connStatusEl  = document.getElementById('connection-status');
+  const liveDot       = document.getElementById('live-dot');
+  const alertBanner   = document.getElementById('alert-banner');
 
-    function renderBox(id, data) {
-        const humidity = data.humidity || 0;
-        const temperature = data.temperature || 0;
-        const silica = data.silica || 'N/A';
-        const name = data.name || `Box ${id}`;
-        
-        let status = 'SAFE';
-        let statusClass = 'bg-emerald-100 text-emerald-800';
-        let barColor = 'bg-emerald-500';
-        let borderClass = 'bg-emerald-500';
-
-        if (humidity > 45) {
-            status = 'CRITICAL';
-            statusClass = 'bg-error-container text-on-error-container';
-            barColor = 'bg-error';
-            borderClass = 'bg-error';
-        } else if (humidity > 35) {
-            status = 'WARNING';
-            statusClass = 'bg-amber-100 text-amber-800';
-            barColor = 'bg-amber-500';
-            borderClass = 'bg-amber-500';
+  // ── Chart.js Setup ─────────────────────────────────────────────
+  const ctx = document.getElementById('humidity-chart').getContext('2d');
+  const humidityChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Humidity (%)',
+        data: [],
+        borderColor: '#0061a4',
+        backgroundColor: 'rgba(0,97,164,0.07)',
+        fill: true,
+        tension: 0.4,
+        pointBackgroundColor: '#0061a4',
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        borderWidth: 2.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: { label: ctx => ` ${ctx.parsed.y.toFixed(1)} %` }
         }
-
-        return `
-            <div class="bg-white border border-outline-variant rounded-xl overflow-hidden hover:shadow-md transition-shadow">
-                <div class="h-1 ${borderClass}"></div>
-                <div class="p-md space-y-md">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h4 class="font-headline-md text-headline-md text-primary">Box ${id}</h4>
-                            <p class="font-body-sm text-body-sm text-on-surface-variant">${name}</p>
-                        </div>
-                        <span class="px-3 py-1 ${statusClass} font-label-caps text-[10px] rounded-full">${status}</span>
-                    </div>
-                    <div class="flex items-end gap-2">
-                        <span class="font-data-num text-data-num text-on-background">${humidity}<span class="text-2xl">%</span></span>
-                        <div class="pb-2">
-                            <span class="font-label-caps text-label-caps text-on-surface-variant block">HUMIDITY</span>
-                            <div class="w-32 h-2 bg-slate-100 rounded-full mt-1 overflow-hidden">
-                                <div class="h-full ${barColor} transition-all duration-1000" style="width: ${humidity}%"></div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
-                        <div>
-                            <span class="font-label-caps text-label-caps text-on-surface-variant">TEMP</span>
-                            <p class="font-title-sm text-title-sm text-on-surface">${temperature} °C</p>
-                        </div>
-                        <div>
-                            <span class="font-label-caps text-label-caps text-on-surface-variant">SILICA LIFE</span>
-                            <p class="font-title-sm text-title-sm ${silica === 'EXPIRED' ? 'text-error' : 'text-on-surface'}">${silica} ${silica === 'EXPIRED' ? '' : 'Days'}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    database.ref('boxes').on('value', (snapshot) => {
-        const boxes = snapshot.val();
-        if (boxes) {
-            let html = '';
-            const boxIds = Object.keys(boxes);
-            boxIds.forEach(id => {
-                html += renderBox(id, boxes[id]);
-            });
-            
-            html += `
-                <div class="border-2 border-dashed border-outline-variant rounded-xl flex flex-col items-center justify-center p-md text-on-surface-variant hover:bg-slate-50 transition-colors cursor-pointer group">
-                    <div class="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-outlined text-4xl">add</span>
-                    </div>
-                    <span class="font-headline-md text-headline-md">Add New Unit</span>
-                    <p class="font-body-sm text-body-sm mt-1">Configure a new AI sensor</p>
-                </div>
-            `;
-            
-            boxesContainer.innerHTML = html;
-            totalUnitsCount.innerText = boxIds.length;
-            lastUpdateTime.innerText = new Date().toLocaleTimeString();
-            
-            const anyCritical = Object.values(boxes).some(b => b.humidity > 45);
-            if (anyCritical) {
-                globalStatusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-error animate-pulse';
-                globalStatusText.innerText = 'Critical Alert';
-                globalStatusText.className = 'font-headline-md text-headline-md text-error';
-            } else {
-                globalStatusIndicator.className = 'w-2.5 h-2.5 rounded-full bg-emerald-500';
-                globalStatusText.innerText = 'Optimal';
-                globalStatusText.className = 'font-headline-md text-headline-md text-on-surface';
-            }
+      },
+      scales: {
+        y: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          ticks: { callback: v => v + '%', font: { family: 'Inter', size: 11 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { font: { family: 'Inter', size: 10 }, maxTicksLimit: 8 }
         }
-    });
+      },
+      animation: { duration: 400 }
+    }
+  });
+
+  // ── Status Helper ──────────────────────────────────────────────
+  function applyStatus(statusStr, humidity) {
+    const s = (statusStr || '').toLowerCase();
+    const isCritical = s.includes('critical') || humidity > CRIT_THRESH;
+    const isWarning  = s.includes('warning')  || (humidity > WARN_THRESH && !isCritical);
+
+    statusEl.textContent = statusStr || 'Unknown';
+
+    if (isCritical) {
+      statusEl.className      = 'font-headline-md text-headline-md text-red-600';
+      statusDot.className     = 'w-2 h-2 rounded-full bg-red-500 animate-pulse';
+      statusIcon.textContent  = 'crisis_alert';
+      statusIconWrap.className= 'p-3 bg-red-50 rounded-xl';
+      statusIcon.className    = 'material-symbols-outlined text-red-500';
+      statusSub.textContent   = 'Critical — immediate action required!';
+      humBar.className        = 'h-full bg-red-500 transition-all duration-1000 rounded-full';
+      showAlert('CRITICAL', true, `Humidity at ${humidity}% — desiccant may be saturated!`);
+
+    } else if (isWarning) {
+      statusEl.className      = 'font-headline-md text-headline-md text-amber-600';
+      statusDot.className     = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+      statusIcon.textContent  = 'warning';
+      statusIconWrap.className= 'p-3 bg-amber-50 rounded-xl';
+      statusIcon.className    = 'material-symbols-outlined text-amber-500';
+      statusSub.textContent   = 'Humidity approaching critical threshold';
+      humBar.className        = 'h-full bg-amber-500 transition-all duration-1000 rounded-full';
+      showAlert('WARNING', false, `Humidity at ${humidity}% — approaching critical threshold.`);
+
+    } else {
+      statusEl.className      = 'font-headline-md text-headline-md text-emerald-600';
+      statusDot.className     = 'w-2 h-2 rounded-full bg-emerald-500';
+      statusIcon.textContent  = 'check_circle';
+      statusIconWrap.className= 'p-3 bg-emerald-50 rounded-xl';
+      statusIcon.className    = 'material-symbols-outlined text-emerald-500';
+      statusSub.textContent   = 'All conditions within safe limits';
+      humBar.className        = 'h-full bg-blue-500 transition-all duration-1000 rounded-full';
+      alertBanner.classList.add('hidden');
+    }
+  }
+
+  function showAlert(level, isCritical, msg) {
+    const bg     = isCritical ? 'bg-red-50 border-red-200'     : 'bg-amber-50 border-amber-200';
+    const iconBg = isCritical ? 'bg-red-500'                   : 'bg-amber-500';
+    const icon   = isCritical ? 'crisis_alert'                 : 'warning';
+    const text   = isCritical ? 'text-red-800'                 : 'text-amber-800';
+    const sub    = isCritical ? 'text-red-600'                 : 'text-amber-600';
+    alertBanner.classList.remove('hidden');
+    alertBanner.innerHTML = `
+      <div class="${bg} border rounded-xl p-md flex items-start gap-4">
+        <div class="p-3 ${iconBg} rounded-full text-white flex-shrink-0">
+          <span class="material-symbols-outlined">${icon}</span>
+        </div>
+        <div>
+          <h3 class="font-headline-md ${text}">${level}: Drybox Sensor</h3>
+          <p class="font-body-sm ${sub} mt-1">${msg}</p>
+        </div>
+      </div>`;
+  }
+
+  // ── Firebase Connection State ──────────────────────────────────
+  db.ref('.info/connected').on('value', snap => {
+    if (snap.val() === true) {
+      connStatusEl.textContent  = 'Live';
+      connStatusEl.className    = 'text-sm font-semibold text-emerald-700';
+      liveDot.className         = 'w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse';
+    } else {
+      connStatusEl.textContent  = 'Reconnecting…';
+      connStatusEl.className    = 'text-sm font-semibold text-amber-600';
+      liveDot.className         = 'w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse';
+    }
+  });
+
+  // ── Main Sensor Listener ───────────────────────────────────────
+  db.ref("drybox").on("value", snapshot => {
+    const data = snapshot.val();
+    if (!data) return;
+
+    const now  = new Date().toLocaleTimeString();
+    const temp = parseFloat(data.temperature ?? 0);
+    const hum  = parseFloat(data.humidity ?? 0);
+
+    // Update stat cards
+    tempEl.textContent      = temp.toFixed(1);
+    tempTimeEl.textContent  = now;
+    humEl.textContent       = hum.toFixed(1);
+    humBar.style.width      = Math.min(hum, 100) + '%';
+    lastUpdateEl.textContent = now;
+
+    applyStatus(data.status, hum);
+
+    // Push to chart
+    humidityChart.data.labels.push(now);
+    humidityChart.data.datasets[0].data.push(hum);
+    if (humidityChart.data.labels.length > 20) {
+      humidityChart.data.labels.shift();
+      humidityChart.data.datasets[0].data.shift();
+    }
+    humidityChart.update();
+  });
 </script>
 @endsection

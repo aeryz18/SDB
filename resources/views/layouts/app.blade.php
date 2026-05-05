@@ -121,13 +121,21 @@
                 <a class="{{ request()->routeIs('equipment') ? 'text-blue-700 font-semibold border-b-2 border-blue-700' : 'text-slate-500' }}" href="{{ route('equipment') }}">Equipment</a>
                 <a class="{{ request()->routeIs('analytics') ? 'text-blue-700 font-semibold border-b-2 border-blue-700' : 'text-slate-500' }}" href="{{ route('analytics') }}">Analytics</a>
             </div>
-            <div class="flex items-center gap-2">
-                <button class="p-2 text-slate-500 hover:bg-slate-50 rounded-full transition-colors">
-                    <span class="material-symbols-outlined">notifications</span>
-                </button>
-                <div class="w-8 h-8 rounded-full overflow-hidden ml-2 border border-slate-200">
-                    <img alt="Administrator Profile" src="https://lh3.googleusercontent.com/aida-public/AB6AXuChYrniWnbZ33du5rhAJI5nAjY-PHO_z-bsDMXGL28mBYfxQxAtuaFPYOKWKQng0CliRbmJBJervXtgwU3e8kdA2BFefG9Pr1KpLDlwHttC9WaGdoWn3wpWXGZ7r3Hr8j8KZf0nxhzcjkcVePjKChgmAKMnJu_m7Isrm666LrAmszTZo_zNpSnXZj1X_kvmDSSy2PX5VpG5bnP4m9H8rOAAThotXAlZ-HHFvj3j2kaR0x7QQpZTJb_VtA_dXJmhP4cPkcbfdb8bvKk"/>
+            <div class="flex items-center gap-3">
+                {{-- User greeting --}}
+                <div class="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5">
+                    <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
+                        <span class="text-white text-xs font-bold">{{ substr(Auth::user()->name, 0, 1) }}</span>
+                    </div>
+                    <span class="text-sm font-medium text-slate-700">{{ Auth::user()->name }}</span>
                 </div>
+                {{-- Logout --}}
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors" title="Sign out">
+                        <span class="material-symbols-outlined" style="font-size:20px">logout</span>
+                    </button>
+                </form>
             </div>
         </div>
     </header>
