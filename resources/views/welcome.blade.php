@@ -35,6 +35,9 @@
       <span class="font-display font-bold text-lg tracking-tight">DryBox <span class="text-blue-400">AI</span></span>
     </div>
     <div class="flex items-center gap-3">
+      <a href="{{ route('demo.enter') }}" class="text-sm text-slate-300 hover:text-white transition-colors font-medium px-4 py-2 flex items-center gap-1.5">
+        <span class="material-symbols-outlined" style="font-size:16px">science</span> Try Demo
+      </a>
       <a href="{{ route('login') }}" class="text-sm text-slate-300 hover:text-white transition-colors font-medium px-4 py-2">Sign In</a>
       <a href="{{ route('register') }}" class="btn-primary px-5 py-2.5 rounded-xl text-sm font-semibold text-white">Get Started</a>
     </div>
@@ -61,8 +64,8 @@
         <a href="{{ route('register') }}" class="btn-primary px-8 py-3.5 rounded-xl font-semibold text-center text-white flex items-center justify-center gap-2">
           <span class="material-symbols-outlined text-base">rocket_launch</span> Start Monitoring Free
         </a>
-        <a href="{{ route('login') }}" class="px-8 py-3.5 rounded-xl font-semibold text-center text-slate-300 border border-white/10 hover:border-white/25 hover:text-white transition-all flex items-center justify-center gap-2">
-          <span class="material-symbols-outlined text-base">login</span> Sign In
+        <a href="{{ route('demo.enter') }}" class="px-8 py-3.5 rounded-xl font-semibold text-center text-white border border-violet-400/30 bg-gradient-to-r from-violet-600/20 to-blue-600/20 hover:from-violet-600/30 hover:to-blue-600/30 transition-all flex items-center justify-center gap-2 backdrop-blur-sm">
+          <span class="material-symbols-outlined text-base">science</span> Try Interactive Demo
         </a>
       </div>
       <div class="flex items-center gap-8 mt-12 pt-8 border-t border-white/5">
@@ -159,6 +162,27 @@
         </div>
         <h3 class="font-display font-semibold text-xl mb-3">Live Analytics</h3>
         <p class="text-slate-400 leading-relaxed">Dynamic Chart.js graphs plotting humidity and temperature trends in real-time — your sensor history at a glance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+{{-- ── Demo CTA ────────────────────────────────────────────────── --}}
+<section class="py-16 px-6">
+  <div class="max-w-4xl mx-auto">
+    <div class="glass rounded-3xl p-12 relative overflow-hidden border border-violet-500/20">
+      <div class="absolute inset-0 bg-gradient-to-br from-violet-600/15 to-cyan-500/10 pointer-events-none"></div>
+      <div class="relative z-10 flex flex-col lg:flex-row items-center gap-10">
+        <div class="flex-1 text-center lg:text-left">
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/15 border border-violet-500/25 text-violet-300 text-xs font-bold uppercase tracking-wider mb-4">
+            <span class="material-symbols-outlined" style="font-size:14px">science</span> No account required
+          </div>
+          <h2 class="font-display font-bold text-3xl mb-3">See it in action first</h2>
+          <p class="text-slate-400 text-lg">Explore the full dashboard with simulated sensor data — complete with live charts, alerts, and an interactive guided tour.</p>
+        </div>
+        <a href="{{ route('demo.enter') }}" class="flex-shrink-0 inline-flex items-center gap-3 px-10 py-4 rounded-xl font-bold text-white text-lg bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 transition-all shadow-lg shadow-violet-600/25 hover:shadow-violet-500/35 hover:-translate-y-0.5">
+          <span class="material-symbols-outlined">play_circle</span> Launch Demo
+        </a>
       </div>
     </div>
   </div>

@@ -15,6 +15,14 @@ Route::middleware('guest')->group(function () {
     Route::post('/register',[AuthController::class, 'register']);
 });
 
+// ── Demo Mode (no auth required) ──────────────────────────────
+Route::get('/demo',           [App\Http\Controllers\DemoController::class, 'enter'])->name('demo.enter');
+Route::get('/demo/exit',      [App\Http\Controllers\DemoController::class, 'exit'])->name('demo.exit');
+Route::get('/demo/dashboard', [App\Http\Controllers\DemoController::class, 'dashboard'])->name('demo.dashboard');
+Route::get('/demo/equipment', [App\Http\Controllers\DemoController::class, 'equipment'])->name('demo.equipment');
+Route::get('/demo/analytics', [App\Http\Controllers\DemoController::class, 'analytics'])->name('demo.analytics');
+Route::get('/demo/settings',  [App\Http\Controllers\DemoController::class, 'settings'])->name('demo.settings');
+
 // ── Auth: Logout ──────────────────────────────────────────────────
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
 
