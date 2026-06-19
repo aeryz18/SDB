@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Alert;
+use App\Models\Device;
+use App\Models\DeviceSetting;
+use Illuminate\Http\Request;
+
+class DeviceController extends Controller
+{
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name'          => ['required', 'string', 'max:100'],
+            'location'      => ['nullable', 'string', 'max:100'],
+            'firebase_path' => ['required', 'string', 'max:100', 'unique:devices,firebase_path'],
+        ]);
+
+        $device = $request->user()->devices()->create([
+            'name'          => $validated['name'],
+            'location'      => $validated['location'] ?? null,
+            'firebase_path' => $validated['firebase_path'],
+            'is_active'     => true,
+        ]);
+
+        DeviceSetting::create([
+            'device_id'     => $device->id,
+            'notify_emails' => [$request->user()->email],
+        ]);
+
+        return back()->with('success', "Device \"{$device->name}\" added successfully.");
+    }
+
+    public function destroy(Device $device)
+    {
+        abort_unless($device->user_id === auth()->id(), 403);
+        $name = $device->name;
+        $device->delete();
+        return back()->with('success', "Device \"{$name}\" removed.");
+    }
+
+    public function markSilicaReplaced(Device $device)
+    {
+        abort_unless($device->user_id === auth()->id(), 403);
+
+        $device->settings->update(['silica_last_replaced_at' => now()]);
+
+        // Resolve outstanding silica alerts
+        $device->alerts()
+            ->where('type', 'silica_due')
+            ->whereNull('resolved_at')
+            ->update(['resolved_at' => now()]);
+
+        return response()->json([
+            'success'      => true,
+            'interval_days' => $device->settings->silica_interval_days,
+        ]);
+    }
+
+    public function toggleProtection(Device $device)
+    {
+        abort_unless($device->user_id === auth()->id(), 403);
+
+        $newState = ! $device->settings->protection_mode;
+        $device->settings->update(['protection_mode' => $newState]);
+
+        return response()->json([
+            'success'         => true,
+            'protection_mode' => $newState,
+        ]);
+    }
+}
