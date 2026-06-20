@@ -37,60 +37,64 @@ $deviceName   = $primary?->name ?? 'DryBox';
         </div>
     </div>
 
-    {{-- ── Live KPI Tiles ──────────────────────────────────────── --}}
+    {{-- ── KPI Tiles (DB range stats) ────────────────────────────── --}}
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-white border border-outline-variant rounded-xl p-5">
             <span class="font-label-caps text-label-caps text-on-surface-variant block mb-2">AVG HUMIDITY</span>
-            <p class="font-data-num text-3xl text-on-background leading-none" id="kpi-avg-hum">--</p>
-            <p class="text-xs text-slate-400 mt-1">% — session average</p>
+            <p class="font-data-num text-3xl text-on-background leading-none">{{ $rangeStats['avg_humidity'] ?? '--' }}</p>
+            <p class="text-xs text-slate-400 mt-1">% — selected range</p>
         </div>
         <div class="bg-white border border-outline-variant rounded-xl p-5">
             <span class="font-label-caps text-label-caps text-on-surface-variant block mb-2">PEAK HUMIDITY</span>
-            <p class="font-data-num text-3xl text-on-background leading-none" id="kpi-max-hum">--</p>
-            <p class="text-xs text-slate-400 mt-1">% — session high</p>
+            <p class="font-data-num text-3xl text-on-background leading-none">{{ isset($rangeStats['max_humidity']) ? number_format($rangeStats['max_humidity'], 1) : '--' }}</p>
+            <p class="text-xs text-slate-400 mt-1">% — selected range</p>
         </div>
         <div class="bg-white border border-outline-variant rounded-xl p-5">
             <span class="font-label-caps text-label-caps text-on-surface-variant block mb-2">AVG TEMP</span>
-            <p class="font-data-num text-3xl text-on-background leading-none" id="kpi-avg-temp">--</p>
-            <p class="text-xs text-slate-400 mt-1">°C — session average</p>
+            <p class="font-data-num text-3xl text-on-background leading-none">{{ $rangeStats['avg_temp'] ?? '--' }}</p>
+            <p class="text-xs text-slate-400 mt-1">°C — selected range</p>
         </div>
         <div class="bg-white border border-outline-variant rounded-xl p-5">
-            <span class="font-label-caps text-label-caps text-on-surface-variant block mb-2">READINGS (DB)</span>
-            <p class="font-data-num text-3xl text-on-background leading-none">
-                @if(!empty($dbStats['total_readings']))
-                    {{ number_format($dbStats['total_readings']) }}
-                @else
-                    <span id="kpi-count">0</span>
-                @endif
-            </p>
-            <p class="text-xs text-slate-400 mt-1">
-                @if(!empty($dbStats['total_readings']))
-                    rows stored in database
-                @else
-                    data points this session
-                @endif
-            </p>
+            <span class="font-label-caps text-label-caps text-on-surface-variant block mb-2">READINGS</span>
+            <p class="font-data-num text-3xl text-on-background leading-none">{{ isset($rangeStats['count']) ? number_format($rangeStats['count']) : number_format($dbStats['total_readings'] ?? 0) }}</p>
+            <p class="text-xs text-slate-400 mt-1">{{ isset($rangeStats['count']) ? 'in selected range' : 'total in database' }}</p>
         </div>
     </section>
 
     {{-- ── Main Chart + Summary ────────────────────────────────── --}}
     <section class="grid grid-cols-1 lg:grid-cols-12 gap-grid-gutter">
 
-        {{-- Dual-axis Line Chart --}}
+        {{-- DB History Chart --}}
         <div class="lg:col-span-8 bg-white border border-outline-variant rounded-xl p-md flex flex-col min-h-[420px]">
-            <div class="flex justify-between items-center mb-5">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-3">
                 <div>
-                    <h3 class="font-headline-md text-headline-md text-on-surface">Live Sensor Readings</h3>
+                    <h3 class="font-headline-md text-headline-md text-on-surface">Sensor History</h3>
                     <p class="font-body-sm text-body-sm text-on-surface-variant">
-                        Humidity & Temperature — real-time from Firebase
-                        · Warn: {{ $warnThresh }}% / Crit: {{ $critThresh }}%
+                        Hourly averages from database · Warn: {{ $warnThresh }}% / Crit: {{ $critThresh }}%
                     </p>
                 </div>
-                <span class="flex items-center gap-2 text-xs text-emerald-600 font-bold uppercase tracking-wider bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
-                    <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div> Live
-                </span>
+                {{-- Date range filter --}}
+                <form method="GET" action="{{ route('analytics') }}" class="flex items-center gap-2 flex-wrap">
+                    <input type="date" name="from" value="{{ $from->format('Y-m-d') }}"
+                           max="{{ now()->format('Y-m-d') }}"
+                           class="px-2.5 py-1.5 border border-outline-variant rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <span class="text-xs text-slate-400">to</span>
+                    <input type="date" name="to" value="{{ $to->format('Y-m-d') }}"
+                           max="{{ now()->format('Y-m-d') }}"
+                           class="px-2.5 py-1.5 border border-outline-variant rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30">
+                    <button type="submit" class="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-colors">
+                        Apply
+                    </button>
+                </form>
             </div>
             <div class="flex-1 relative min-h-[280px]">
+                @if($historyData->isEmpty())
+                    <div class="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                        <span class="material-symbols-outlined text-4xl mb-2">query_stats</span>
+                        <p class="text-sm font-medium">No readings in this date range</p>
+                        <p class="text-xs mt-1">Make sure the scheduler is running and try a different range</p>
+                    </div>
+                @endif
                 <canvas id="analytics-chart"></canvas>
             </div>
             <div class="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100">
@@ -102,7 +106,7 @@ $deviceName   = $primary?->name ?? 'DryBox';
                     <span class="w-3 h-3 rounded-full bg-orange-400"></span>
                     <span class="text-xs font-semibold text-on-surface-variant uppercase">Temperature (°C)</span>
                 </div>
-                <span class="ml-auto text-xs text-slate-400">Last 20 live readings</span>
+                <span class="ml-auto text-xs text-slate-400">{{ $historyData->count() }} hourly data points</span>
             </div>
         </div>
 
@@ -278,44 +282,27 @@ $deviceName   = $primary?->name ?? 'DryBox';
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
 <script>
-// ── Firebase ──────────────────────────────────────────────────
-const firebaseConfig = {
-    apiKey:      "{{ config('firebase.api_key') }}",
-    databaseURL: "{{ config('firebase.database_url') }}",
-};
-if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
+// ── DB history data (server-rendered) ────────────────────────
+@php
+    $chartLabels = $historyData->map(fn($r) => \Carbon\Carbon::parse($r->hour)->format('d M H:i'));
+    $chartHum    = $historyData->map(fn($r) => (float) $r->avg_humidity);
+    $chartTemp   = $historyData->map(fn($r) => (float) $r->avg_temperature);
+@endphp
+const dbLabels = @json($chartLabels);
+const dbHum    = @json($chartHum);
+const dbTemp   = @json($chartTemp);
 
-// ── Thresholds from server ────────────────────────────────────
-const CRIT_THRESH = {{ $critThresh }};
-const WARN_THRESH = {{ $warnThresh }};
-
-// ── DOM ───────────────────────────────────────────────────────
-const connDot   = document.getElementById('conn-dot');
-const connLabel = document.getElementById('conn-label');
-const logEl     = document.getElementById('analytics-log');
-const logRows   = [];
-
-let humReadings = [], tempReadings = [], sessionCount = 0;
-
-// ── Connection state ──────────────────────────────────────────
-db.ref('.info/connected').on('value', snap => {
-    const live = snap.val() === true;
-    connDot.className    = `w-2 h-2 rounded-full ${live ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400 animate-pulse'}`;
-    connLabel.textContent = live ? 'Live' : 'Reconnecting…';
-    connLabel.className  = `font-medium text-xs ${live ? 'text-emerald-600' : 'text-amber-500'}`;
-});
-
-// ── Chart ─────────────────────────────────────────────────────
+// ── History Chart ─────────────────────────────────────────────
 const ctx = document.getElementById('analytics-chart').getContext('2d');
 const analyticsChart = new Chart(ctx, {
     type: 'line',
     data: {
-        labels: [],
+        labels: dbLabels,
         datasets: [
-            { label: 'Humidity (%)',     data: [], borderColor: '#003178', backgroundColor: 'rgba(0,49,120,0.07)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5, yAxisID: 'yHum' },
-            { label: 'Temperature (°C)', data: [], borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.05)', fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2.5, yAxisID: 'yTemp' },
+            { label: 'Humidity (%)',     data: dbHum,  borderColor: '#003178', backgroundColor: 'rgba(0,49,120,0.07)', fill: true, tension: 0.4, pointRadius: dbLabels.length > 72 ? 0 : 3, borderWidth: 2.5, yAxisID: 'yHum' },
+            { label: 'Temperature (°C)', data: dbTemp, borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.05)', fill: true, tension: 0.4, pointRadius: dbLabels.length > 72 ? 0 : 3, borderWidth: 2.5, yAxisID: 'yTemp' },
         ]
     },
     options: {
@@ -328,47 +315,34 @@ const analyticsChart = new Chart(ctx, {
         scales: {
             yHum:  { position: 'left',  min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { callback: v => v + '%', font: { size: 11 } }, title: { display: true, text: 'Humidity (%)', font: { size: 11 } } },
             yTemp: { position: 'right', min: 0, max: 60,  grid: { display: false }, ticks: { callback: v => v + '°', font: { size: 11 } }, title: { display: true, text: 'Temperature (°C)', font: { size: 11 } } },
-            x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8 } }
+            x: { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 10 } }
         },
-        animation: { duration: 400 }
+        animation: { duration: 300 }
     }
 });
 
-// ── KPI updater ───────────────────────────────────────────────
-function updateKPIs() {
-    if (!humReadings.length) return;
-    const avgHum  = humReadings.reduce((a, b) => a + b, 0) / humReadings.length;
-    const maxHum  = Math.max(...humReadings);
-    const avgTemp = tempReadings.reduce((a, b) => a + b, 0) / tempReadings.length;
-    document.getElementById('kpi-avg-hum').textContent  = avgHum.toFixed(1);
-    document.getElementById('kpi-max-hum').textContent  = maxHum.toFixed(1);
-    document.getElementById('kpi-avg-temp').textContent = avgTemp.toFixed(1);
-    // Only update session count if no DB count is shown
-    const kpiCount = document.getElementById('kpi-count');
-    if (kpiCount) kpiCount.textContent = ++sessionCount;
-}
-
-// ── Export live session CSV ───────────────────────────────────
-window.exportSessionCSV = function() {
-    if (!humReadings.length) { alert('No live session data to export yet.'); return; }
-    const labels = analyticsChart.data.labels;
-    const hums   = analyticsChart.data.datasets[0].data;
-    const temps  = analyticsChart.data.datasets[1].data;
-    let csv = 'Time,Humidity (%),Temperature (°C)\n';
-    labels.forEach((l, i) => csv += `${l},${(hums[i]??'').toString()},${(temps[i]??'').toString()}\n`);
-    const a     = document.createElement('a');
-    a.href      = 'data:text/csv,' + encodeURIComponent(csv);
-    a.download  = `drybox-session-${Date.now()}.csv`;
-    a.click();
+// ── Firebase (live snapshot panel + event log only) ───────────
+const firebaseConfig = {
+    apiKey:      "{{ config('firebase.api_key') }}",
+    databaseURL: "{{ config('firebase.database_url') }}",
 };
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-// ── Clear log ─────────────────────────────────────────────────
-window.clearLog = function() {
-    logRows.length = 0;
-    logEl.innerHTML = '<tr><td colspan="4" class="px-md py-8 text-center text-sm text-slate-400">Log cleared.</td></tr>';
-};
+const CRIT_THRESH = {{ $critThresh }};
+const WARN_THRESH = {{ $warnThresh }};
+const connDot     = document.getElementById('conn-dot');
+const connLabel   = document.getElementById('conn-label');
+const logEl       = document.getElementById('analytics-log');
+const logRows     = [];
 
-// ── Firebase Listener ─────────────────────────────────────────
+db.ref('.info/connected').on('value', snap => {
+    const live = snap.val() === true;
+    connDot.className     = `w-2 h-2 rounded-full ${live ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400 animate-pulse'}`;
+    connLabel.textContent = live ? 'Live' : 'Reconnecting…';
+    connLabel.className   = `font-medium text-xs ${live ? 'text-emerald-600' : 'text-amber-500'}`;
+});
+
 db.ref("{{ $firebasePath }}").on("value", snapshot => {
     const data = snapshot.val();
     if (!data) return;
@@ -378,30 +352,13 @@ db.ref("{{ $firebasePath }}").on("value", snapshot => {
     const temp = parseFloat(data.temperature ?? 0);
     const stat = data.status || 'Unknown';
 
-    // Snapshot panel
-    document.getElementById('snap-hum').innerHTML    = `${hum.toFixed(1)}<span class="text-sm">%</span>`;
-    document.getElementById('snap-temp').innerHTML   = `${temp.toFixed(1)}<span class="text-sm">°C</span>`;
+    document.getElementById('snap-hum').innerHTML      = `${hum.toFixed(1)}<span class="text-sm">%</span>`;
+    document.getElementById('snap-temp').innerHTML     = `${temp.toFixed(1)}<span class="text-sm">°C</span>`;
     document.getElementById('snap-status').textContent = stat;
-    document.getElementById('snap-time').textContent = time;
+    document.getElementById('snap-time').textContent   = time;
 
-    // KPI accumulators
-    humReadings.push(hum); tempReadings.push(temp);
-    updateKPIs();
-
-    // Chart
-    analyticsChart.data.labels.push(time);
-    analyticsChart.data.datasets[0].data.push(hum);
-    analyticsChart.data.datasets[1].data.push(temp);
-    if (analyticsChart.data.labels.length > 20) {
-        analyticsChart.data.labels.shift();
-        analyticsChart.data.datasets[0].data.shift();
-        analyticsChart.data.datasets[1].data.shift();
-    }
-    analyticsChart.update();
-
-    // Event log row
-    const isCrit = hum > CRIT_THRESH || stat.toLowerCase().includes('critical');
-    const isWarn = !isCrit && (hum > WARN_THRESH || stat.toLowerCase().includes('warning'));
+    const isCrit = hum > CRIT_THRESH;
+    const isWarn = !isCrit && hum > WARN_THRESH;
     const badge  = isCrit
         ? '<span class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold uppercase rounded-lg">Critical</span>'
         : isWarn
@@ -425,5 +382,21 @@ db.ref("{{ $firebasePath }}").on("value", snapshot => {
     if (logRows.length > 15) logRows.pop();
     logEl.innerHTML = logRows.join('');
 });
+
+// ── Export chart data as CSV ──────────────────────────────────
+window.exportSessionCSV = function() {
+    if (!dbLabels.length) { alert('No data in the selected range.'); return; }
+    let csv = 'Hour,Avg Humidity (%),Avg Temperature (°C)\n';
+    dbLabels.forEach((l, i) => csv += `${l},${dbHum[i] ?? ''},${dbTemp[i] ?? ''}\n`);
+    const a    = document.createElement('a');
+    a.href     = 'data:text/csv,' + encodeURIComponent(csv);
+    a.download = `drybox-history-{{ $from->format('Y-m-d') }}-{{ $to->format('Y-m-d') }}.csv`;
+    a.click();
+};
+
+window.clearLog = function() {
+    logRows.length = 0;
+    logEl.innerHTML = '<tr><td colspan="4" class="px-md py-8 text-center text-sm text-slate-400">Log cleared.</td></tr>';
+};
 </script>
 @endsection

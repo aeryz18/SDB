@@ -127,3 +127,5 @@ How to handle daily code changes without stepping on your teammates. Branch + Pu
 - Letting a branch live for weeks without merging — conflicts get worse, not better, over time
 - Vague commit messages that mean nothing a week later
 - Merging without pulling `main` first
+
+

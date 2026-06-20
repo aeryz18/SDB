@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FungusRisk;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class DryBoxController extends Controller
@@ -15,8 +16,8 @@ class DryBoxController extends Controller
             ->orderBy('created_at')
             ->first();
 
-        $settings   = $device?->settings;
-        $fungusRisk = ['level' => 'Low', 'score' => 0];
+        $settings     = $device?->settings;
+        $fungusRisk   = ['level' => 'Low', 'score' => 0];
         $readingCount = 0;
 
         if ($device && $settings) {
@@ -44,7 +45,7 @@ class DryBoxController extends Controller
         return view('equipment', compact('devices'));
     }
 
-    public function analytics()
+    public function analytics(Request $request)
     {
         $devices  = auth()->user()->devices()
             ->with('settings')
@@ -55,7 +56,18 @@ class DryBoxController extends Controller
         $primary  = $devices->first();
         $settings = $primary?->settings;
 
-        $dbStats = [];
+        $from = $request->filled('from')
+            ? Carbon::parse($request->from)->startOfDay()
+            : now()->subDays(6)->startOfDay();
+
+        $to = $request->filled('to')
+            ? Carbon::parse($request->to)->endOfDay()
+            : now()->endOfDay();
+
+        $dbStats     = [];
+        $historyData = collect();
+        $rangeStats  = [];
+
         if ($primary) {
             $dbStats = [
                 'total_readings' => $primary->readings()->count(),
@@ -63,9 +75,28 @@ class DryBoxController extends Controller
                 'earliest'       => $primary->readings()->min('recorded_at'),
                 'latest'         => $primary->readings()->max('recorded_at'),
             ];
+
+            $historyData = $primary->readings()
+                ->selectRaw("DATE_FORMAT(recorded_at, '%Y-%m-%d %H:00:00') as hour,
+                              ROUND(AVG(humidity), 1)    as avg_humidity,
+                              ROUND(AVG(temperature), 1) as avg_temperature,
+                              COUNT(*) as reading_count")
+                ->whereBetween('recorded_at', [$from, $to])
+                ->groupByRaw("DATE_FORMAT(recorded_at, '%Y-%m-%d %H:00:00')")
+                ->orderBy('hour')
+                ->get();
+
+            if ($historyData->isNotEmpty()) {
+                $rangeStats = [
+                    'avg_humidity' => round($historyData->avg('avg_humidity'), 1),
+                    'max_humidity' => $primary->readings()->whereBetween('recorded_at', [$from, $to])->max('humidity'),
+                    'avg_temp'     => round($historyData->avg('avg_temperature'), 1),
+                    'count'        => $historyData->sum('reading_count'),
+                ];
+            }
         }
 
-        return view('analytics', compact('devices', 'primary', 'settings', 'dbStats'));
+        return view('analytics', compact('devices', 'primary', 'settings', 'dbStats', 'historyData', 'rangeStats', 'from', 'to'));
     }
 
     public function settings()

@@ -9,7 +9,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ```bash
-# Install dependencies
+# First-time setup (install, .env, key, migrate, npm build)
+composer setup
+
+# Install dependencies only
 composer install && npm install
 
 # Start all dev servers (Laravel + queue worker + Vite HMR + scheduler)
@@ -79,9 +82,9 @@ Five application tables beyond the Laravel defaults:
 | Table | Purpose |
 |-------|---------|
 | `devices` | Registry of physical boxes — `user_id`, `name`, `location`, `firebase_path` (unique), `is_active` |
-| `device_settings` | Per-device config — `warn_humidity` (35), `crit_humidity` (45), `silica_last_replaced_at`, `silica_interval_days` (90), `protection_mode`, `door_field`, `notify_emails` (JSON), `alert_cooldown_minutes` (30) |
+| `device_settings` | Per-device config — `warn_humidity` (35), `crit_humidity` (45), `temp_min`/`temp_max` (nullable), `fungus_alerts_enabled` (true), `silica_last_replaced_at`, `silica_interval_days` (90), `protection_mode`, `door_field`, `notify_emails` (JSON), `alert_cooldown_minutes` (30) |
 | `readings` | Sensor history — `device_id`, `temperature`, `humidity`, `status`, `door_state`, `recorded_at`; **no** `created_at`/`updated_at` (`$timestamps = false`) |
-| `alerts` | Alert log — `type` enum (`humidity_warn`, `humidity_crit`, `temp`, `fungus`, `silica_due`, `tamper`), `value`, `emailed_at`, `resolved_at` |
+| `alerts` | Alert log — `device_id`, `type` enum (`humidity_warn`, `humidity_crit`, `temp`, `fungus`, `silica_due`, `tamper`), `message`, `value`, `emailed_at`, `resolved_at`; composite index on `(device_id, type, resolved_at)` |
 
 ### Models
 
@@ -93,7 +96,7 @@ All models use **PHP 8.3 attribute syntax**: `#[Fillable([...])]` and `#[Hidden(
 
 ### Controllers
 
-- **`DryBoxController`** — page controllers; each method queries the user's primary active device (ordered by `created_at`) and passes `$device`, `$settings`, `$fungusRisk`, etc. to the view. `saveSettings()` handles `POST /settings`.
+- **`DryBoxController`** — page controllers; each method queries the user's primary active device (ordered by `created_at`) and passes `$device`, `$settings`, `$fungusRisk`, etc. to the view. `saveSettings()` handles `POST /settings` — it only validates and saves `warn_humidity`, `crit_humidity`, `silica_interval_days`, and `notify_emails`; other settings (`temp_min`/`temp_max`, `protection_mode`, `fungus_alerts_enabled`) are mutated via AJAX through `DeviceController`.
 - **`AuthController`** — email/password auth + Google OAuth (`redirectToGoogle`, `handleGoogleCallback`). Callback finds-or-creates user by `google_id`, stores encrypted refresh token.
 - **`DeviceController`** — `store`, `destroy`, `markSilicaReplaced`, `toggleProtection`. The last two return JSON for AJAX calls on the equipment page.
 - **`ReportController`** — `generate()` streams a CSV download using `->cursor()` for readings (memory-safe) + pre-computed aggregate stats via `selectRaw`.
@@ -102,7 +105,7 @@ All models use **PHP 8.3 attribute syntax**: `#[Fillable([...])]` and `#[Hidden(
 ### Services
 
 - **`FirebaseReader`** (`app/Services/Firebase/`) — thin wrapper over kreait RTDB: `read(string $path): array`.
-- **`AlertEvaluator`** — `evaluate(Device, Reading): array` returns triggered alert payloads; `evaluateFungus(Device, string $riskLevel): array`. Both check cooldown via `alerts` table to prevent duplicate emails within `alert_cooldown_minutes`.
+- **`AlertEvaluator`** — `evaluate(Device, Reading): array` checks humidity (warn/crit), temperature (`temp_min`/`temp_max`), and door tamper; `evaluateFungus(Device, string $riskLevel): array` fires only when `$riskLevel === FungusRisk::HIGH` and `fungus_alerts_enabled`. Both check cooldown via `alerts` table.
 - **`FungusRisk`** — `evaluate(Collection $readings, DeviceSetting): ['level' => Low|Moderate|High, 'score' => 0–100]`. Scores based on percentage of readings above warn/crit thresholds, weighted by whether temperature is in the 20–35 °C mould-growth band.
 - **`GmailApiSender`** — sends email via Gmail API using the user's OAuth refresh token (no SMTP). Exchanges refresh token for access token, encodes MIME as `base64url`, POSTs to `gmail.googleapis.com`.
 
