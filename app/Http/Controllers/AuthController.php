@@ -53,7 +53,7 @@ class AuthController extends Controller
 
         Auth::login($user);
 
-        return redirect()->route('dashboard');
+        return redirect()->route('setup');
     }
 
     public function logout(Request $request)
@@ -104,6 +104,8 @@ class AuthController extends Controller
         Auth::login($user);
         request()->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        // New users (no devices) → setup wizard; returning users → dashboard
+        $hasDevice = $user->devices()->where('is_active', true)->exists();
+        return redirect()->intended($hasDevice ? route('dashboard') : route('setup'));
     }
 }

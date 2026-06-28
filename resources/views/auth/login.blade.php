@@ -58,6 +58,7 @@
             id="email" name="email" type="email"
             value="{{ old('email') }}"
             required autofocus autocomplete="email"
+            autocapitalize="none" autocorrect="off" spellcheck="false"
             placeholder="you@example.com"
             class="input-field w-full pl-10 pr-4 py-3 rounded-xl text-sm"
           >

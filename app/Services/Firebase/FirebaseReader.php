@@ -19,4 +19,9 @@ class FirebaseReader
 
         return $value !== null ? ['value' => $value] : [];
     }
+
+    public function set(string $path, mixed $value): void
+    {
+        $this->database->getReference($path)->set($value);
+    }
 }

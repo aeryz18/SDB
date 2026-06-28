@@ -4,6 +4,21 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'DryBox AI')</title>
+
+    {{-- ── PWA ──────────────────────────────────────────────────── --}}
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1a56db">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="DryBox AI">
+
+    {{-- iOS / Safari PWA --}}
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="DryBox AI">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+
+    {{-- Favicon --}}
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
     
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
@@ -105,84 +120,130 @@
         .material-symbols-outlined {
             font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
-        body { background-color: #f7f9fc; }
+        body { background-color: #f7f9fc; color: #191c1e; }
+
+        /* ── Global placeholder contrast fix ──────────────────────── */
+        ::placeholder { color: #64748b; opacity: 1; }       /* slate-500 */
+        input, textarea, select { color: #0f172a; }         /* slate-900 */
+
+        /* ── Sidebar nav link hover ───────────────────────────────── */
+        .nav-link { border-radius: 10px; transition: background 0.15s, color 0.15s; }
+        .nav-link:hover { background: #f1f5f9; color: #1e3a8a; }
+        .nav-link.active { background: #eff6ff; color: #1d4ed8; font-weight: 600; }
+        .nav-link.active .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24; }
+
+        /* ── Bottom nav active dot ────────────────────────────────── */
+        .bnav-link { transition: color 0.15s; }
+        .bnav-link.active { color: #1d4ed8; }
+        .bnav-link.active .material-symbols-outlined { font-variation-settings: 'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 24; }
     </style>
     @yield('head')
 </head>
 <body class="text-on-background">
-    <!-- TopNavBar -->
-    <header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div class="flex items-center gap-4">
-            <span class="text-xl font-bold text-blue-900 dark:text-blue-200 tracking-tighter font-['Space_Grotesk']">DryBox AI</span>
+
+    {{-- ── Top Bar (logo + user only — NO page links) ─────────────── --}}
+    <header class="fixed top-0 w-full z-50 flex justify-between items-center px-5 h-16 bg-white border-b border-slate-200 shadow-sm">
+
+        {{-- Logo --}}
+        <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow shadow-blue-500/30">
+                <span class="material-symbols-outlined text-white" style="font-size:18px">humidity_indoor</span>
+            </div>
+            <span class="text-lg font-bold text-slate-900 tracking-tight font-['Space_Grotesk']">DryBox <span class="text-blue-600">AI</span></span>
         </div>
-        <div class="flex items-center gap-6">
-            <div class="hidden md:flex gap-8 items-center font-['Space_Grotesk'] text-sm tracking-tight">
-                <a class="{{ request()->routeIs('dashboard') ? 'text-blue-700 font-semibold border-b-2 border-blue-700' : 'text-slate-500' }}" href="{{ route('dashboard') }}">Dashboard</a>
-                <a class="{{ request()->routeIs('equipment') ? 'text-blue-700 font-semibold border-b-2 border-blue-700' : 'text-slate-500' }}" href="{{ route('equipment') }}">Equipment</a>
-                <a class="{{ request()->routeIs('analytics') ? 'text-blue-700 font-semibold border-b-2 border-blue-700' : 'text-slate-500' }}" href="{{ route('analytics') }}">Analytics</a>
-            </div>
-            <div class="flex items-center gap-3">
-                {{-- User greeting --}}
-                <div class="hidden sm:flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-full px-3 py-1.5">
-                    <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                        <span class="text-white text-xs font-bold">{{ substr(Auth::user()->name, 0, 1) }}</span>
-                    </div>
-                    <span class="text-sm font-medium text-slate-700">{{ Auth::user()->name }}</span>
+
+        {{-- User + Logout --}}
+        <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-1.5">
+                <div class="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-xs font-bold leading-none">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</span>
                 </div>
-                {{-- Logout --}}
-                <form method="POST" action="{{ route('logout') }}">
-                    @csrf
-                    <button type="submit" class="p-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors" title="Sign out">
-                        <span class="material-symbols-outlined" style="font-size:20px">logout</span>
-                    </button>
-                </form>
+                <span class="text-sm font-semibold text-slate-800 hidden sm:inline">{{ Auth::user()->name }}</span>
             </div>
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit"
+                    class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Sign out">
+                    <span class="material-symbols-outlined" style="font-size:18px">logout</span>
+                    <span class="hidden sm:inline">Sign out</span>
+                </button>
+            </form>
         </div>
     </header>
 
-    <!-- SideNavBar -->
-    <aside class="hidden lg:flex flex-col fixed left-0 top-0 h-full z-40 pt-20 pb-6 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 font-['Space_Grotesk'] text-sm font-medium">
-        <div class="px-6 mb-8">
-            <h2 class="text-lg font-black text-blue-900 dark:text-blue-100">Precision Monitor</h2>
-            <p class="text-[10px] uppercase tracking-widest text-slate-400">AI-Powered Integrity</p>
+    {{-- ── Sidebar (desktop only) ──────────────────────────────────── --}}
+    <aside class="hidden lg:flex flex-col fixed left-0 top-0 h-full z-40 w-60 bg-white border-r border-slate-200">
+
+        {{-- Sidebar top spacer (aligns with header height) --}}
+        <div class="h-16 flex items-center px-5 border-b border-slate-100">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Navigation</p>
         </div>
-        <nav class="flex-1 space-y-1 px-4">
-            <a class="flex items-center gap-3 px-4 py-3 {{ request()->routeIs('dashboard') ? 'bg-blue-50 text-blue-800 border-r-4 border-blue-800' : 'text-slate-600' }}" href="{{ route('dashboard') }}">
-                <span class="material-symbols-outlined">dashboard</span> Dashboard
+
+        {{-- Nav links --}}
+        <nav class="flex-1 px-3 py-4 space-y-0.5">
+            @php
+                $navItems = [
+                    ['route' => 'dashboard', 'icon' => 'dashboard',   'label' => 'Dashboard'],
+                    ['route' => 'equipment', 'icon' => 'inventory_2', 'label' => 'Equipment'],
+                    ['route' => 'analytics', 'icon' => 'insights',    'label' => 'Analytics'],
+                    ['route' => 'settings',  'icon' => 'settings',    'label' => 'Settings'],
+                ];
+            @endphp
+            @foreach($navItems as $item)
+            <a href="{{ route($item['route']) }}"
+               class="nav-link flex items-center gap-3 px-4 py-3 text-sm text-slate-700 {{ request()->routeIs($item['route']) ? 'active' : '' }}">
+                <span class="material-symbols-outlined" style="font-size:22px">{{ $item['icon'] }}</span>
+                {{ $item['label'] }}
             </a>
-            <a class="flex items-center gap-3 px-4 py-3 {{ request()->routeIs('equipment') ? 'bg-blue-50 text-blue-800 border-r-4 border-blue-800' : 'text-slate-600' }}" href="{{ route('equipment') }}">
-                <span class="material-symbols-outlined">inventory_2</span> Equipment
-            </a>
-            <a class="flex items-center gap-3 px-4 py-3 {{ request()->routeIs('analytics') ? 'bg-blue-50 text-blue-800 border-r-4 border-blue-800' : 'text-slate-600' }}" href="{{ route('analytics') }}">
-                <span class="material-symbols-outlined">insights</span> Analytics
-            </a>
-            <a class="flex items-center gap-3 px-4 py-3 {{ request()->routeIs('settings') ? 'bg-blue-50 text-blue-800 border-r-4 border-blue-800' : 'text-slate-600' }}" href="{{ route('settings') }}">
-                <span class="material-symbols-outlined">settings</span> Settings
-            </a>
+            @endforeach
         </nav>
+
+        {{-- Sidebar footer --}}
+        <div class="px-5 py-4 border-t border-slate-100">
+            <p class="text-[11px] text-slate-400 leading-relaxed">DryBox AI — Smart Dry Storage</p>
+        </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="lg:pl-64 pt-20 pb-24 lg:pb-8 px-container-margin">
-        @yield('content')
+    {{-- ── Main Content ─────────────────────────────────────────────── --}}
+    <main class="lg:pl-60 pt-16 pb-20 lg:pb-6 min-h-screen">
+        <div class="px-5 md:px-8 py-6">
+            @yield('content')
+        </div>
     </main>
 
-    <!-- BottomNavBar (Mobile) -->
-    <nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-3 pb-safe bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 font-['Space_Grotesk'] text-[10px] uppercase tracking-widest">
-        <a class="flex flex-col items-center {{ request()->routeIs('dashboard') ? 'text-blue-800' : 'text-slate-400' }}" href="{{ route('dashboard') }}">
-            <span class="material-symbols-outlined mb-1">home</span> Home
-        </a>
-        <a class="flex flex-col items-center {{ request()->routeIs('equipment') ? 'text-blue-800' : 'text-slate-400' }}" href="{{ route('equipment') }}">
-            <span class="material-symbols-outlined mb-1">grid_view</span> Units
-        </a>
-        <a class="flex flex-col items-center {{ request()->routeIs('analytics') ? 'text-blue-800' : 'text-slate-400' }}" href="{{ route('analytics') }}">
-            <span class="material-symbols-outlined mb-1">query_stats</span> Data
-        </a>
-        <a class="flex flex-col items-center {{ request()->routeIs('settings') ? 'text-blue-800' : 'text-slate-400' }}" href="{{ route('settings') }}">
-            <span class="material-symbols-outlined mb-1">settings</span> Settings
-        </a>
+    {{-- ── Bottom Nav (mobile only) ────────────────────────────────── --}}
+    <nav class="lg:hidden fixed bottom-0 left-0 w-full z-50 bg-white border-t border-slate-200 shadow-lg">
+        <div class="flex justify-around items-center h-16">
+            @php
+                $mobileNav = [
+                    ['route' => 'dashboard', 'icon' => 'dashboard',   'label' => 'Dashboard'],
+                    ['route' => 'equipment', 'icon' => 'inventory_2', 'label' => 'Equipment'],
+                    ['route' => 'analytics', 'icon' => 'insights',    'label' => 'Analytics'],
+                    ['route' => 'settings',  'icon' => 'settings',    'label' => 'Settings'],
+                ];
+            @endphp
+            @foreach($mobileNav as $item)
+            <a href="{{ route($item['route']) }}"
+               class="bnav-link flex flex-col items-center gap-0.5 px-3 text-slate-400 {{ request()->routeIs($item['route']) ? 'active' : '' }}">
+                <span class="material-symbols-outlined" style="font-size:24px">{{ $item['icon'] }}</span>
+                <span class="text-[10px] font-semibold tracking-wide">{{ $item['label'] }}</span>
+            </a>
+            @endforeach
+        </div>
     </nav>
 
     @yield('scripts')
+
+    {{-- ── Service Worker registration ────────────────────────── --}}
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('[PWA] Service worker registered:', reg.scope))
+            .catch(err => console.warn('[PWA] SW registration failed:', err));
+        });
+      }
+    </script>
 </body>
 </html>

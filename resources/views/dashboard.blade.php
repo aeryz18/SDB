@@ -14,10 +14,81 @@ $fungusColors = [
 ];
 $fColor = $fungusColors[$fungusRisk['level']] ?? $fungusColors['Low'];
 $protected = $settings?->protection_mode ?? false;
+
+// Silica gel status
+$silicaReplaced  = $settings?->silica_last_replaced_at;
+$silicaInterval  = (int) ($settings?->silica_interval_days ?? 90);
+$silicaDaysSince = $silicaReplaced ? (int) now()->diffInDays($silicaReplaced) : $silicaInterval + 1;
+$silicaDaysLeft  = $silicaInterval - $silicaDaysSince;   // negative means overdue
+$silicaDue       = $silicaDaysLeft <= 0;
+$silicaWarning   = !$silicaDue && $silicaDaysLeft <= 14;
+$silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSince / $silicaInterval * 100))) : 100;
 @endphp
 
 @section('content')
 <div class="max-w-7xl mx-auto space-y-md">
+
+@if(!$device)
+{{-- ══════════════════════════════════════════════════════════════
+     EMPTY STATE — no device set up yet
+════════════════════════════════════════════════════════════════ --}}
+<div class="flex flex-col items-center justify-center py-20 text-center">
+    <div class="w-20 h-20 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center mb-6">
+        <span class="material-symbols-outlined text-blue-500" style="font-size:40px">sensors_off</span>
+    </div>
+    <h1 class="font-display font-bold text-2xl text-slate-800 mb-2">No DryBox unit connected</h1>
+    <p class="text-slate-500 max-w-sm mb-8">
+        Complete the setup wizard to register your device, flash the ESP32 firmware, and start live monitoring.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-3">
+        <a href="{{ route('setup') }}"
+           class="px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined" style="font-size:18px">rocket_launch</span>
+            Start Setup Wizard
+        </a>
+        <a href="{{ route('equipment') }}"
+           class="px-8 py-3.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2">
+            <span class="material-symbols-outlined" style="font-size:18px">add</span>
+            Add Device Manually
+        </a>
+    </div>
+
+    {{-- Setup checklist --}}
+    <div class="mt-12 bg-white border border-slate-200 rounded-2xl p-6 w-full max-w-md text-left">
+        <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Setup checklist</p>
+        <div class="space-y-3">
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                    <span class="material-symbols-outlined text-emerald-600" style="font-size:14px">check</span>
+                </div>
+                <span class="text-sm text-slate-600">Create your account</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <span class="text-xs font-bold text-slate-400">2</span>
+                </div>
+                <span class="text-sm text-slate-400">Register your DryBox device</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <span class="text-xs font-bold text-slate-400">3</span>
+                </div>
+                <span class="text-sm text-slate-400">Flash ESP32 firmware</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                    <span class="text-xs font-bold text-slate-400">4</span>
+                </div>
+                <span class="text-sm text-slate-400">Enable email alerts (optional)</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@else
+{{-- ══════════════════════════════════════════════════════════════
+     NORMAL DASHBOARD — device is connected
+════════════════════════════════════════════════════════════════ --}}
 
     {{-- ── Page Header ───────────────────────────────────────────── --}}
     <div class="flex flex-col md:flex-row md:items-center justify-between gap-md">
@@ -25,25 +96,19 @@ $protected = $settings?->protection_mode ?? false;
             <h1 class="font-display-lg text-display-lg text-primary">System Dashboard</h1>
             <p class="font-body-base text-body-base text-on-surface-variant">
                 Live monitoring —
-                @if($device)
-                    <span class="font-semibold text-on-surface">{{ $device->name }}</span>
-                    @if($device->location)
-                        <span class="text-slate-400"> · {{ $device->location }}</span>
-                    @endif
-                @else
-                    Smart Dry Box Sensor
+                <span class="font-semibold text-on-surface">{{ $device->name }}</span>
+                @if($device->location)
+                    <span class="text-slate-400"> · {{ $device->location }}</span>
                 @endif
             </p>
         </div>
 
         <div class="flex items-center gap-3 self-start md:self-auto flex-wrap">
             {{-- Protection badge --}}
-            @if($device)
             <span class="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold border {{ $protected ? 'bg-purple-50 text-purple-700 border-purple-200' : 'bg-slate-50 text-slate-500 border-outline-variant' }}">
                 <span class="material-symbols-outlined" style="font-size:16px">{{ $protected ? 'security' : 'lock_open' }}</span>
                 {{ $protected ? 'Armed' : 'Disarmed' }}
             </span>
-            @endif
 
             {{-- Connection Status Badge --}}
             <div class="flex items-center gap-2 px-4 py-2 bg-slate-50 border border-outline-variant rounded-xl">
@@ -122,8 +187,8 @@ $protected = $settings?->protection_mode ?? false;
 
     </section>
 
-    {{-- ── Fungus Risk + Protection Row ───────────────────────── --}}
-    <section class="grid grid-cols-1 md:grid-cols-2 gap-grid-gutter">
+    {{-- ── Fungus Risk + Silica Gel + Protection Row ────────── --}}
+    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-grid-gutter">
 
         {{-- Fungus Risk Gauge --}}
         <div class="bg-white border border-outline-variant rounded-xl p-md hover:shadow-md transition-shadow">
@@ -142,10 +207,10 @@ $protected = $settings?->protection_mode ?? false;
                 </div>
             </div>
 
-            {{-- Score bar --}}
+            {{-- Exposure bar --}}
             <div class="mb-4">
                 <div class="flex justify-between text-xs text-slate-400 mb-1.5">
-                    <span>Risk score</span>
+                    <span>Elevated RH exposure (24 h)</span>
                     <span>{{ $fungusRisk['score'] }}%</span>
                 </div>
                 <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
@@ -157,13 +222,94 @@ $protected = $settings?->protection_mode ?? false;
                 </div>
             </div>
 
+            {{-- Fired rules --}}
+            @if(!empty($fungusRisk['fired_rules']))
+            <div class="mb-3 space-y-1.5">
+                @foreach($fungusRisk['reasons'] as $reason)
+                <div class="flex items-start gap-1.5 text-xs {{ $fungusRisk['level'] === 'High' ? 'text-red-600' : 'text-amber-600' }}">
+                    <span class="material-symbols-outlined flex-shrink-0" style="font-size:13px;margin-top:1px">arrow_right</span>
+                    <span>{{ $reason }}</span>
+                </div>
+                @endforeach
+            </div>
+            @endif
+
             <div class="pt-3 border-t border-slate-100 text-xs text-on-surface-variant flex items-center gap-1.5">
                 <span class="material-symbols-outlined" style="font-size:14px">history</span>
                 @if($readingCount > 0)
-                    Based on last {{ $readingCount }} readings (updated each minute)
+                    Based on {{ $readingCount }} readings in the last 24 h (updated each minute)
                 @else
                     No readings yet — start the scheduler to collect data
                 @endif
+            </div>
+        </div>
+
+        {{-- Silica Gel Status --}}
+        <div class="bg-white border border-outline-variant rounded-xl p-md hover:shadow-md transition-shadow">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <span class="font-label-caps text-label-caps text-on-surface-variant block">SILICA GEL</span>
+                    <div class="flex items-center gap-3 mt-2">
+                        @if($silicaDue)
+                            <span class="font-headline-md text-xl font-bold text-red-600">Overdue</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-red-50 text-red-700 border border-red-200">Replace now</span>
+                        @elseif($silicaWarning)
+                            <span class="font-headline-md text-xl font-bold text-amber-600">{{ $silicaDaysLeft }}d left</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">Replace soon</span>
+                        @elseif($silicaReplaced)
+                            <span class="font-headline-md text-xl font-bold text-emerald-600">{{ $silicaDaysLeft }}d left</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">OK</span>
+                        @else
+                            <span class="font-headline-md text-xl font-bold text-slate-400">Unknown</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-slate-50 text-slate-500 border border-slate-200">Not logged</span>
+                        @endif
+                    </div>
+                </div>
+                <div class="p-3 {{ $silicaDue ? 'bg-red-50' : ($silicaWarning ? 'bg-amber-50' : 'bg-emerald-50') }} rounded-xl">
+                    <span class="material-symbols-outlined {{ $silicaDue ? 'text-red-500' : ($silicaWarning ? 'text-amber-500' : 'text-emerald-500') }}">science</span>
+                </div>
+            </div>
+
+            {{-- Gel life progress bar --}}
+            @if($silicaReplaced)
+            <div class="mb-4">
+                <div class="flex justify-between text-xs text-slate-400 mb-1.5">
+                    <span>Gel life used</span>
+                    <span>{{ $silicaDaysSince }}d / {{ $silicaInterval }}d</span>
+                </div>
+                <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div class="h-full {{ $silicaDue ? 'bg-red-500' : ($silicaWarning ? 'bg-amber-500' : 'bg-emerald-500') }} rounded-full transition-all duration-700"
+                         style="width:{{ $silicaBarPct }}%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-slate-300 mt-1">
+                    <span>Replaced</span><span>Warning</span><span>Due</span>
+                </div>
+            </div>
+            @endif
+
+            {{-- Alert message --}}
+            @if($silicaDue || $silicaWarning || !$silicaReplaced)
+            <div class="mb-3">
+                <div class="flex items-start gap-1.5 text-xs {{ $silicaDue ? 'text-red-600' : ($silicaWarning ? 'text-amber-600' : 'text-slate-400') }}">
+                    <span class="material-symbols-outlined flex-shrink-0" style="font-size:13px;margin-top:1px">arrow_right</span>
+                    <span>
+                        @if($silicaDue)
+                            {{ abs($silicaDaysLeft) }} day(s) overdue — gel may be saturated and no longer absorbing moisture effectively.
+                        @elseif($silicaWarning)
+                            {{ $silicaDaysLeft }} days until scheduled replacement (every {{ $silicaInterval }} days).
+                        @else
+                            No replacement has been logged yet for this device.
+                        @endif
+                    </span>
+                </div>
+            </div>
+            @endif
+
+            <div class="pt-3 border-t border-slate-100">
+                <a href="{{ route('equipment') }}" class="text-xs text-primary font-semibold flex items-center gap-1 hover:underline">
+                    <span class="material-symbols-outlined" style="font-size:14px">open_in_new</span>
+                    Mark as replaced on Equipment page
+                </a>
             </div>
         </div>
 
@@ -243,9 +389,12 @@ $protected = $settings?->protection_mode ?? false;
         </div>
     </section>
 
+@endif {{-- end @if($device) --}}
+
 </div>
 @endsection
 
+@if($device)
 @section('scripts')
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
@@ -420,3 +569,4 @@ db.ref("{{ $firebasePath }}").on("value", snapshot => {
 });
 </script>
 @endsection
+@endif {{-- end @if($device) scripts guard --}}

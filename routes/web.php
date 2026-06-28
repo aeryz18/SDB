@@ -3,10 +3,12 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\DryBoxController;
+use App\Http\Controllers\SetupController;
 use Illuminate\Support\Facades\Route;
 
-// ── Public: Landing page ──────────────────────────────────────────
+// ── Public: Landing page + PWA offline fallback ───────────────────
 Route::get('/', fn() => view('welcome'))->name('landing');
+Route::get('/offline', fn() => view('offline'))->name('offline');
 
 // ── Guest-only: Auth pages ────────────────────────────────────────
 Route::middleware('guest')->group(function () {
@@ -32,6 +34,12 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 
 // ── Protected: App routes ─────────────────────────────────────────
 Route::middleware('auth')->group(function () {
+    // ── Onboarding setup wizard ───────────────────────────────────
+    Route::get('/setup',                    [SetupController::class, 'wizard'])->name('setup');
+    Route::post('/setup/device',            [SetupController::class, 'storeDevice'])->name('setup.device.store');
+    Route::get('/setup/firmware/{device}',  [SetupController::class, 'firmware'])->name('setup.firmware');
+    Route::get('/setup/alerts',             [SetupController::class, 'alerts'])->name('setup.alerts');
+
     Route::get('/dashboard', [DryBoxController::class, 'dashboard'])->name('dashboard');
     Route::get('/equipment', [DryBoxController::class, 'equipment'])->name('equipment');
     Route::get('/analytics', [DryBoxController::class, 'analytics'])->name('analytics');

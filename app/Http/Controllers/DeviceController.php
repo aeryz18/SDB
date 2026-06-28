@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Alert;
 use App\Models\Device;
 use App\Models\DeviceSetting;
+use App\Services\Firebase\FirebaseReader;
 use Illuminate\Http\Request;
 
 class DeviceController extends Controller
@@ -58,12 +59,19 @@ class DeviceController extends Controller
         ]);
     }
 
-    public function toggleProtection(Device $device)
+    public function toggleProtection(Device $device, FirebaseReader $firebase)
     {
         abort_unless($device->user_id === auth()->id(), 403);
 
         $newState = ! $device->settings->protection_mode;
         $device->settings->update(['protection_mode' => $newState]);
+
+        // Push to Firebase so the ESP32 picks it up within 30 seconds
+        try {
+            $firebase->set($device->firebase_path . '/protection_mode', $newState);
+        } catch (\Throwable) {
+            // Firebase write failure is non-fatal — MySQL is the source of truth
+        }
 
         return response()->json([
             'success'         => true,

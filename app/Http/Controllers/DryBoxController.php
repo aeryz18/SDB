@@ -22,8 +22,8 @@ class DryBoxController extends Controller
 
         if ($device && $settings) {
             $recent = $device->readings()
-                ->orderByDesc('recorded_at')
-                ->limit(60)
+                ->where('recorded_at', '>=', now()->subHours(24))
+                ->orderBy('recorded_at')
                 ->get();
             $readingCount = $recent->count();
             if ($readingCount > 0) {
