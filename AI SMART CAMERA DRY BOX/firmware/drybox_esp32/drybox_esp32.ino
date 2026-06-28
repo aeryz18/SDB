@@ -16,12 +16,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "DHT.h"
+#include "secrets.h"   // WIFI_SSID, WIFI_PASSWORD, API_KEY, DATABASE_URL — gitignored
 
 // ─── CONFIG ───────────────────────────────────────────────────────────────────
-#define WIFI_SSID      "Azlan"
-#define WIFI_PASSWORD  "1234567890"
-#define API_KEY        "AIzaSyC-tVJQqf5yKHmBFjmWn4dOyam5BNsNTQ0"
-#define DATABASE_URL   "https://iot-project-1d0fa-default-rtdb.firebaseio.com/"
 #define FIREBASE_PATH  "/drybox"   // must match firebase_path in Laravel DB
 
 // ─── PINS ────────────────────────────────────────────────────────────────────
