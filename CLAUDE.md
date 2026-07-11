@@ -84,7 +84,7 @@ Five application tables beyond the Laravel defaults:
 | `devices` | Registry of physical boxes — `user_id`, `name`, `location`, `firebase_path` (unique), `is_active` |
 | `device_settings` | Per-device config — `warn_humidity` (35), `crit_humidity` (45), `temp_min`/`temp_max` (nullable), `fungus_alerts_enabled` (true), `silica_last_replaced_at`, `silica_interval_days` (90), `protection_mode`, `door_field`, `notify_emails` (JSON), `alert_cooldown_minutes` (30) |
 | `readings` | Sensor history — `device_id`, `temperature`, `humidity`, `status`, `door_state`, `recorded_at`; **no** `created_at`/`updated_at` (`$timestamps = false`) |
-| `alerts` | Alert log — `device_id`, `type` enum (`humidity_warn`, `humidity_crit`, `temp`, `fungus`, `silica_due`, `tamper`), `message`, `value`, `emailed_at`, `resolved_at`; composite index on `(device_id, type, resolved_at)` |
+| `alerts` | Alert log — `device_id`, `type` enum (`humidity_warn`, `humidity_crit`, `temp`, `fungus`, `silica_due`, `silica_drift`, `tamper`), `message`, `value`, `emailed_at`, `resolved_at`; composite index on `(device_id, type, resolved_at)`. `humidity_warn`/`humidity_crit` remain valid enum values for historical rows but are no longer generated — real-time humidity is surfaced on the live dashboard instead of by email. |
 
 ### Models
 
@@ -99,26 +99,30 @@ All models use **PHP 8.3 attribute syntax**: `#[Fillable([...])]` and `#[Hidden(
 - **`DryBoxController`** — page controllers; each method queries the user's primary active device (ordered by `created_at`) and passes `$device`, `$settings`, `$fungusRisk`, etc. to the view. `saveSettings()` handles `POST /settings` — it only validates and saves `warn_humidity`, `crit_humidity`, `silica_interval_days`, and `notify_emails`; other settings (`temp_min`/`temp_max`, `protection_mode`, `fungus_alerts_enabled`) are mutated via AJAX through `DeviceController`.
 - **`AuthController`** — email/password auth + Google OAuth (`redirectToGoogle`, `handleGoogleCallback`). Callback finds-or-creates user by `google_id`, stores encrypted refresh token.
 - **`DeviceController`** — `store`, `destroy`, `markSilicaReplaced`, `toggleProtection`. The last two return JSON for AJAX calls on the equipment page.
-- **`ReportController`** — `generate()` streams a CSV download using `->cursor()` for readings (memory-safe) + pre-computed aggregate stats via `selectRaw`.
+- **`ReportController`** — `generate()` streams a CSV download built by `ReportGenerator` (which uses `->cursor()` for readings and pre-computed aggregate stats via `selectRaw`).
 - **`DemoController`** — sets/clears a `demo_mode` session flag, returns demo Blade views.
 
 ### Services
 
 - **`FirebaseReader`** (`app/Services/Firebase/`) — thin wrapper over kreait RTDB: `read(string $path): array`.
-- **`AlertEvaluator`** — `evaluate(Device, Reading): array` checks humidity (warn/crit), temperature (`temp_min`/`temp_max`), and door tamper; `evaluateFungus(Device, string $riskLevel): array` fires only when `$riskLevel === FungusRisk::HIGH` and `fungus_alerts_enabled`. Both check cooldown via `alerts` table.
+- **`AlertEvaluator`** — `evaluate(Device, Reading): array` checks temperature (`temp_min`/`temp_max`) and door tamper (no humidity threshold alerts — see below); `evaluateFungus(Device, string $riskLevel): array` fires only when `$riskLevel === FungusRisk::HIGH` and `fungus_alerts_enabled`. Both check cooldown via `alerts` table.
 - **`FungusRisk`** — `evaluate(Collection $readings, DeviceSetting): ['level' => Low|Moderate|High, 'score' => 0–100]`. Scores based on percentage of readings above warn/crit thresholds, weighted by whether temperature is in the 20–35 °C mould-growth band.
-- **`GmailApiSender`** — sends email via Gmail API using the user's OAuth refresh token (no SMTP). Exchanges refresh token for access token, encodes MIME as `base64url`, POSTs to `gmail.googleapis.com`.
+- **`ReportGenerator`** — `generate(Device, Carbon $from, Carbon $to): string` builds the CSV condition report (readings, alerts, summary stats); `filename(...)` builds the matching download name. Shared by `ReportController::generate()` (on-demand download) and `SendMonthlyReport` (emailed attachment).
+- **`GmailApiSender`** — sends email via Gmail API using the user's OAuth refresh token (no SMTP). Exchanges refresh token for access token, encodes MIME as `base64url`, POSTs to `gmail.googleapis.com`. `send()` sends a plain HTML message; `sendWithAttachment()` builds a `multipart/mixed` MIME message with a base64-encoded file part (used for the monthly report CSV).
 
 ### Scheduler & Queue
 
 `drybox:poll` runs every minute (registered in `routes/console.php`). For each active device it:
 1. Reads Firebase via kreait
 2. Stores a `Reading`
-3. Runs `AlertEvaluator::evaluate()` (humidity/temp/tamper) + `AlertEvaluator::evaluateFungus()`
+3. Runs `AlertEvaluator::evaluate()` (temp/tamper — no humidity check) + `AlertEvaluator::evaluateFungus()`
 4. Checks silica gel due date (once per day, guarded by `whereDate('created_at', today())`)
-5. Creates `Alert` rows and dispatches `SendGmailAlert` jobs
+5. Checks silica gel humidity-drift (`PollDeviceData::checkSilicaDrift()`): compares the closed-door humidity average from the first `SILICA_BASELINE_WINDOW_DAYS` (3) after `silica_last_replaced_at` against the closed-door average over the last `SILICA_RECENT_WINDOW_HOURS` (24); fires a `silica_drift` alert (once/day) if it has risen by `SILICA_DRIFT_RH_THRESHOLD` (10 points) or more, provided both windows have at least `SILICA_MIN_SAMPLES` (10) closed-door readings. Independent of the fixed-interval check, so it can catch a gel saturating faster than `silica_interval_days` assumes.
+6. Creates `Alert` rows and dispatches `SendGmailAlert` jobs
 
 `SendGmailAlert` uses `QUEUE_CONNECTION=database`. On `invalid_grant` from Gmail it clears `google_refresh_token` rather than retrying.
+
+`drybox:monthly-report` runs on the 1st of each month at 01:00 (registered in `routes/console.php`). For each active device it dispatches a `SendMonthlyReport` job per `notify_emails` recipient, covering the previous calendar month. The job builds the CSV via `ReportGenerator` and emails it as an attachment via `GmailApiSender::sendWithAttachment()` using `resources/views/emails/monthly-report.blade.php`. This runs alongside the on-demand `/report` download, not instead of it. Both `SendGmailAlert` and `SendMonthlyReport` clear `google_refresh_token` on `invalid_grant`.
 
 ### Google OAuth
 

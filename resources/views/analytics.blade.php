@@ -198,22 +198,7 @@ $deviceName   = $primary?->name ?? 'DryBox';
 
         @if($primary)
         <form action="{{ route('report.generate') }}" method="GET" class="flex flex-wrap gap-4 items-end">
-            {{-- Device selector (only shown if multiple devices) --}}
-            @if($devices->count() > 1)
-            <div class="flex-1 min-w-[160px]">
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5">Device</label>
-                <select name="device_id"
-                        class="w-full px-3 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors bg-white">
-                    @foreach($devices as $d)
-                    <option value="{{ $d->id }}" {{ $d->id === $primary->id ? 'selected' : '' }}>
-                        {{ $d->name }}{{ $d->location ? ' · '.$d->location : '' }}
-                    </option>
-                    @endforeach
-                </select>
-            </div>
-            @else
             <input type="hidden" name="device_id" value="{{ $primary->id }}">
-            @endif
 
             {{-- From date --}}
             <div>

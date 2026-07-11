@@ -36,24 +36,23 @@ class DryBoxController extends Controller
 
     public function equipment()
     {
-        $devices = auth()->user()->devices()
+        $device = auth()->user()->devices()
             ->with('settings')
             ->where('is_active', true)
             ->orderBy('created_at')
-            ->get();
+            ->first();
 
-        return view('equipment', compact('devices'));
+        return view('equipment', compact('device'));
     }
 
     public function analytics(Request $request)
     {
-        $devices  = auth()->user()->devices()
+        $primary  = auth()->user()->devices()
             ->with('settings')
             ->where('is_active', true)
             ->orderBy('created_at')
-            ->get();
+            ->first();
 
-        $primary  = $devices->first();
         $settings = $primary?->settings;
 
         $from = $request->filled('from')
@@ -96,7 +95,7 @@ class DryBoxController extends Controller
             }
         }
 
-        return view('analytics', compact('devices', 'primary', 'settings', 'dbStats', 'historyData', 'rangeStats', 'from', 'to'));
+        return view('analytics', compact('primary', 'settings', 'dbStats', 'historyData', 'rangeStats', 'from', 'to'));
     }
 
     public function settings()

@@ -3,40 +3,28 @@
   "author": "DryBox AI",
   "editor": "wokwi",
   "parts": [
-    {
-      "type": "wokwi-breadboard",
-      "id": "bb1",
-      "top": 300,
-      "left": -96,
-      "attrs": {}
-    },
-    {
-      "type": "wokwi-esp32-devkit-v1",
-      "id": "esp32",
-      "top": 80,
-      "left": 16,
-      "attrs": {}
-    },
+    { "type": "wokwi-breadboard-half", "id": "bb1", "top": 371.4, "left": -102.8, "attrs": {} },
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp32", "top": 81.5, "left": 14.2, "attrs": {} },
     {
       "type": "wokwi-buzzer",
       "id": "buzzer1",
-      "top": 384,
-      "left": 256,
+      "top": 338.4,
+      "left": 40.2,
       "attrs": { "volume": "0.5" }
     },
     {
       "type": "wokwi-dht22",
       "id": "dht1",
-      "top": -40,
-      "left": -360,
+      "top": 307.5,
+      "left": 148.2,
       "attrs": { "temperature": "28", "humidity": "65" }
     },
     {
-      "type": "wokwi-pushbutton",
-      "id": "btn1",
-      "top": 336,
-      "left": -384,
-      "attrs": { "color": "green", "label": "Door" }
+      "type": "wokwi-hc-sr04",
+      "id": "hcsr04_1",
+      "top": 327.9,
+      "left": -138.5,
+      "attrs": { "distance": "20" }
     },
     {
       "type": "board-ssd1306",
@@ -44,26 +32,44 @@
       "top": -40,
       "left": 480,
       "attrs": { "i2cAddress": "0x3c" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 483.4,
+      "left": -77.65,
+      "rotate": 270,
+      "attrs": { "value": "1000" }
     }
   ],
   "connections": [
-    ["esp32:3V3",   "bb1:tp.1",  "red",    []],
-    ["esp32:GND.1", "bb1:tn.1",  "black",  []],
-
-    ["buzzer1:1",   "esp32:D2",  "yellow", []],
-    ["buzzer1:2",   "bb1:tn.20", "black",  []],
-
-    ["dht1:VCC",    "bb1:tp.5",  "red",    []],
-    ["dht1:GND",    "bb1:tn.5",  "black",  []],
-    ["dht1:SDA",    "esp32:D4",  "green",  []],
-
-    ["btn1:1.l",    "esp32:D15", "blue",   []],
-    ["btn1:2.l",    "bb1:tn.8",  "black",  []],
-
-    ["oled1:VCC",   "bb1:tp.25", "red",    []],
-    ["oled1:GND",   "bb1:tn.25", "black",  []],
-    ["oled1:SDA",   "esp32:D21", "purple", []],
-    ["oled1:SCL",   "esp32:D22", "orange", []]
+    [ "oled1:SDA", "esp32:D21", "purple", [ "h-374.1", "v177.94" ] ],
+    [ "oled1:SCL", "esp32:D22", "orange", [ "v-24.06", "h-364.27", "v173.1" ] ],
+    [ "esp32:3V3", "bb1:bp.25", "red", [ "h230.1", "v316.8", "h-145.6" ] ],
+    [ "esp32:GND.1", "bb1:bn.25", "black", [ "h268.5", "v364.7", "h-184" ] ],
+    [ "bb1:5t.b", "bb1:bn.4", "black", [ "v0" ] ],
+    [ "bb1:17t.b", "bb1:bn.14", "black", [ "v0" ] ],
+    [ "bb1:26t.b", "bb1:bp.21", "red", [ "v0" ] ],
+    [ "bb1:29t.b", "bb1:bn.24", "black", [ "v0" ] ],
+    [ "bb1:27t.b", "esp32:D4", "green", [ "v-134.4", "v-105.7" ] ],
+    [ "bb1:16t.b", "esp32:D2", "gold", [ "h-28.8", "v-115.2", "h96", "v-104.9" ] ],
+    [ "bb1:3t.b", "esp32:D5", "green", [ "v0" ] ],
+    [ "oled1:GND", "bb1:bn.20", "black", [ "v0" ] ],
+    [ "oled1:VCC", "bb1:bp.20", "red", [ "v0" ] ],
+    [ "esp32:D18", "bb1:4b.j", "green", [ "h-125.1", "v364.8" ] ],
+    [ "buzzer1:1", "bb1:16t.a", "", [ "$bb" ] ],
+    [ "buzzer1:2", "bb1:17t.a", "", [ "$bb" ] ],
+    [ "dht1:VCC", "bb1:26t.a", "", [ "$bb" ] ],
+    [ "dht1:SDA", "bb1:27t.a", "", [ "$bb" ] ],
+    [ "dht1:NC", "bb1:28t.a", "", [ "$bb" ] ],
+    [ "dht1:GND", "bb1:29t.a", "", [ "$bb" ] ],
+    [ "hcsr04_1:VCC", "bb1:2t.a", "", [ "$bb" ] ],
+    [ "hcsr04_1:TRIG", "bb1:3t.a", "", [ "$bb" ] ],
+    [ "hcsr04_1:ECHO", "bb1:4t.a", "", [ "$bb" ] ],
+    [ "hcsr04_1:GND", "bb1:5t.a", "", [ "$bb" ] ],
+    [ "r1:1", "bb1:4b.i", "", [ "$bb" ] ],
+    [ "r1:2", "bb1:4t.e", "", [ "$bb" ] ],
+    [ "esp32:VIN", "bb1:2t.c", "red", [ "h-201.6", "v201.6" ] ]
   ],
   "dependencies": {}
 }

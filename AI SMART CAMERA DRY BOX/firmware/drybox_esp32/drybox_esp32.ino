@@ -1,9 +1,17 @@
 /**
- * DryBox AI — ESP32 Firmware v2
+ * DryBox AI — ESP32 Firmware v3
  *
  * Hardware:
- *   ESP32 DevKit V1, DHT22 (GPIO4), Door button (GPIO18),
+ *   ESP32 DevKit V1, DHT22 (GPIO4),
+ *   FC-51 IR obstacle-avoidance door sensor (single digital OUT pin, GPIO5),
  *   SSD1306 OLED I2C (SDA=21, SCL=22), Passive buzzer (GPIO2)
+ *
+ * FC-51 wiring note: power it from the ESP32's 3.3V pin (not 5V/VIN). Run at
+ * 3.3V its OUT pin is already a safe logic level for the GPIO directly — no
+ * voltage divider needed (unlike the old HC-SR04). Adjust the onboard trimpot
+ * so OUT triggers right around your door's closed distance (~2.5cm), then
+ * confirm which logic level means "detected" using the [Sensor] serial print
+ * below and flip IR_TRIGGERED_STATE if it's backwards.
  *
  * Libraries (Arduino Library Manager):
  *   Firebase ESP Client by Mobizt, DHT sensor library by Adafruit,
@@ -24,8 +32,17 @@
 // ─── PINS ────────────────────────────────────────────────────────────────────
 #define DHTPIN        4
 #define DHTTYPE       DHT22
-#define DOOR_PIN      15    // INPUT_PULLUP: LOW = door closed, HIGH = door open
+#define IR_PIN        5     // FC-51 digital OUT pin
 #define BUZZER_PIN    2
+
+// ─── DOOR SENSOR (FC-51 IR obstacle avoidance) ────────────────────────────────
+// Single digital pin — no distance math, no debounce needed. Detection range is
+// set physically via the trimpot on the FC-51 board, not in code.
+// CALIBRATE THIS: most FC-51 boards pull OUT LOW when an obstacle is detected
+// (door closed) and HIGH when clear (door open) — that's what LOW=triggered
+// assumes below. Watch the "[Sensor] raw=..." serial print with the door
+// physically open vs closed; if it's backwards, flip IR_TRIGGERED_STATE to HIGH.
+#define IR_TRIGGERED_STATE  LOW   // pin level that means "obstacle detected" (door closed)
 
 // ─── OLED ────────────────────────────────────────────────────────────────────
 #define SCREEN_WIDTH  128
@@ -43,11 +60,12 @@ FirebaseConfig   config;
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 DHT              dht(DHTPIN, DHTTYPE);
 
-// ─── DOOR STATE ──────────────────────────────────────────────────────────────
-int           lastDoorReading = HIGH;
-int           stableDoor      = HIGH;   // HIGH = open, LOW = closed
-unsigned long doorDebounceMs  = 0;
-#define DEBOUNCE_MS 50
+// ─── DOOR STATE (FC-51 digital) ────────────────────────────────────────────────
+// No debounce — digitalRead() is instant and clean (unlike the old ultrasonic
+// distance readings), so the door flips the moment the pin state changes.
+bool          lastDoorReading = false;   // true = open, false = closed
+bool          stableDoor      = false;
+bool          doorOpenNow     = false;   // latest state, used by updateBuzzer()
 int    openCount = 0;
 String doorState = "closed";
 bool   prevDoorOpen = false;
@@ -55,7 +73,7 @@ bool   prevDoorOpen = false;
 // ─── PROTECTION MODE (read from Firebase) ────────────────────────────────────
 bool          protectionMode    = false;
 unsigned long lastProtCheckMs   = 0;
-#define PROT_CHECK_INTERVAL     30000   // re-read from Firebase every 30s
+#define PROT_CHECK_INTERVAL     2000    // re-read from Firebase every 2s (was 30s — shortened for testing; raise back to 15000-30000 for production to reduce Firebase reads)
 
 // ─── BUZZER STATE MACHINE ────────────────────────────────────────────────────
 // ALARM/ALARM_PAUSE : continuous beeping (protection mode ON, door open)
@@ -71,7 +89,7 @@ int           seqStep    = 0;   // shared step counter for OPEN_NOTIFY and CALM
 // Alarm (continuous, protection ON)
 #define ALARM_BEEP_MS   300
 #define ALARM_PAUSE_MS  150
-#define ALARM_FREQ      2000
+#define ALARM_FREQ      2000   // reverted — 3200 was inaudible/weak on this buzzer
 
 // Open notify (two quick ascending beeps, played once, protection OFF)
 const int OPEN_FREQS[]     = { 900, 1200 };
@@ -86,9 +104,14 @@ const int CALM_DURATIONS[] = { 150, 150, 250 };
 #define   CALM_STEPS        3
 
 // ─── TIMERS ──────────────────────────────────────────────────────────────────
-unsigned long lastSendMs  = 0;
-unsigned long lastBlinkMs = 0;
-bool          blinkState  = true;
+unsigned long lastSendMs   = 0;
+unsigned long lastBlinkMs  = 0;
+unsigned long lastCalibMs  = 0;   // for the sensor calibration printout
+unsigned long lastDhtMs    = 0;
+#define DHT_READ_INTERVAL_MS 2100   // DHT22 needs ~2s between reads to return fresh data
+bool          blinkState   = true;
+float         lastTemp     = 0.0;   // updated once the first DHT read succeeds
+float         lastHum      = 0.0;
 
 // ─── BUZZER UPDATE (non-blocking, call every loop) ───────────────────────────
 void updateBuzzer() {
@@ -107,7 +130,7 @@ void updateBuzzer() {
 
     case ALARM_PAUSE:
       if (now - buzzerMs >= ALARM_PAUSE_MS) {
-        if (digitalRead(DOOR_PIN) == HIGH) {   // still open → keep alarming
+        if (doorOpenNow) {   // still open → keep alarming
           tone(BUZZER_PIN, ALARM_FREQ);
           buzzerMode = ALARM;
           buzzerMs   = now;
@@ -167,21 +190,25 @@ void setup() {
   Serial.begin(115200);
 
   Wire.begin(21, 22);
-  pinMode(DOOR_PIN, INPUT_PULLUP);
+  pinMode(IR_PIN, INPUT);
   pinMode(BUZZER_PIN, OUTPUT);
 
   // Read real door state at boot — fixes initialization mismatch
-  stableDoor      = digitalRead(DOOR_PIN);
+  int bootRaw     = digitalRead(IR_PIN);
+  stableDoor      = (bootRaw != IR_TRIGGERED_STATE);   // true = open
   lastDoorReading = stableDoor;
-  doorState       = (stableDoor == HIGH) ? "open" : "closed";
-  Serial.printf("Boot door state: %s (GPIO%d reads %s)\n",
-                doorState.c_str(), DOOR_PIN, stableDoor == HIGH ? "HIGH" : "LOW");
+  doorOpenNow     = stableDoor;
+  doorState       = stableDoor ? "open" : "closed";
+  Serial.printf("Boot door state: %s (raw pin=%s, triggered state=%s)\n",
+                doorState.c_str(), bootRaw == HIGH ? "HIGH" : "LOW",
+                IR_TRIGGERED_STATE == HIGH ? "HIGH" : "LOW");
 
   // OLED
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
     Serial.println("OLED failed");
     while (true);
   }
+  display.setRotation(2);   // flip 180 degrees (0=normal, 1=90, 2=180, 3=270)
   display.clearDisplay();
   display.setTextColor(SSD1306_WHITE);
   display.setTextSize(1);
@@ -194,14 +221,56 @@ void setup() {
   // DHT
   dht.begin();
 
-  // WiFi
+  // WiFi (with timeout so the board never hangs silently on "Starting...")
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect();
+  delay(100);
+
+  // Diagnostic scan — tells us if the SSID is even visible to the ESP32
+  Serial.println("Scanning for WiFi networks...");
+  int netCount = WiFi.scanNetworks();
+  bool ssidSeen = false;
+  if (netCount == 0) {
+    Serial.println("  No networks found at all — check the ESP32 antenna/power.");
+  } else {
+    for (int i = 0; i < netCount; i++) {
+      String foundSsid = WiFi.SSID(i);
+      Serial.printf("  [%d] %s  RSSI:%d  enc:%d\n",
+                    i, foundSsid.c_str(), WiFi.RSSI(i), WiFi.encryptionType(i));
+      if (foundSsid == String(WIFI_SSID)) ssidSeen = true;
+    }
+    Serial.println(ssidSeen
+      ? "  -> Target SSID WAS found in scan."
+      : "  -> Target SSID was NOT found in scan (wrong name, hidden, out of range, or 5GHz-only).");
+  }
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   Serial.print("Connecting WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
+  unsigned long wifiStartMs = millis();
+  const unsigned long WIFI_TIMEOUT_MS = 15000;
+  while (WiFi.status() != WL_CONNECTED && millis() - wifiStartMs < WIFI_TIMEOUT_MS) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\nWiFi connected: " + WiFi.localIP().toString());
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.printf("\nWiFi FAILED to connect (timeout). status code=%d "
+                  "(1=NO_SSID_AVAIL, 4=CONNECT_FAILED/bad password, 6=DISCONNECTED)\n",
+                  WiFi.status());
+    Serial.println("Check SSID/password — ESP32 only supports 2.4GHz networks. "
+                    "Retrying in background...");
+    display.clearDisplay();
+    display.setCursor(10, 20);
+    display.println("WiFi FAILED");
+    display.setCursor(0, 34);
+    display.println("Check SSID/pass");
+    display.setCursor(0, 46);
+    display.println("(2.4GHz only)");
+    display.display();
+    delay(3000);   // let the message be readable, then continue into loop()
+  } else {
+    Serial.println("\nWiFi connected: " + WiFi.localIP().toString());
+  }
 
   // Firebase
   config.api_key      = API_KEY;
@@ -211,7 +280,14 @@ void setup() {
   Firebase.reconnectWiFi(true);
 
   Serial.println("System ready");
-  tone(BUZZER_PIN, 1000, 200);   // startup beep
+  // Startup beep — deliberately NOT using tone(pin, freq, duration). That 3-arg
+  // form sets up an internal auto-timed one-shot on the ESP32's LEDC hardware
+  // that doesn't mix well with the manual tone()/noTone() pairs used everywhere
+  // else in updateBuzzer(), and can leave the buzzer stuck on long after it
+  // should have stopped. Manual start/delay/stop keeps it consistent.
+  tone(BUZZER_PIN, 1000);
+  delay(200);
+  noTone(BUZZER_PIN);
 }
 
 // ─── LOOP ────────────────────────────────────────────────────────────────────
@@ -220,17 +296,16 @@ void loop() {
 
   updateBuzzer();
 
-  // ── DHT22 ─────────────────────────────────────────────────────────────────
-  float temp = dht.readTemperature();
-  float hum  = dht.readHumidity();
-  if (isnan(temp) || isnan(hum)) return;
+  // ── DOOR (FC-51 digital) ───────────────────────────────────────────────────
+  // digitalRead() is instant and clean — check it every loop, no throttling,
+  // no debounce. React the moment the pin state changes.
+  int  rawPin = digitalRead(IR_PIN);
+  bool reading = (rawPin != IR_TRIGGERED_STATE);   // true = open
 
-  // ── DOOR BUTTON with debounce ──────────────────────────────────────────────
-  int reading = digitalRead(DOOR_PIN);
-  if (reading != lastDoorReading) doorDebounceMs = now;
-  if ((now - doorDebounceMs) > DEBOUNCE_MS && reading != stableDoor) {
+  if (reading != stableDoor) {
     stableDoor = reading;
-    bool doorOpen = (stableDoor == HIGH);
+    doorOpenNow = stableDoor;
+    bool doorOpen = stableDoor;
     doorState = doorOpen ? "open" : "closed";
 
     if (doorOpen) {
@@ -253,18 +328,39 @@ void loop() {
       Serial.println("Door CLOSED");
       noTone(BUZZER_PIN);
       seqStep = 0;
-      tone(BUZZER_PIN, CALM_FREQS[0]);
-      buzzerMode = CALM;
-      buzzerMs   = now;
+      buzzerMode = SILENT;   // no chime on close — just stop
     }
   }
   lastDoorReading = reading;
 
+  // ── SENSOR PRINT — watch this while testing to confirm IR_TRIGGERED_STATE
+  //    is set correctly for your FC-51 board (should match physical door state)
+  if (now - lastCalibMs > 1000) {
+    lastCalibMs = now;
+    Serial.printf("[Sensor] raw=%s  door: %s\n",
+                  rawPin == HIGH ? "HIGH" : "LOW", doorState.c_str());
+  }
+
+  // ── DHT22 — read only every DHT_READ_INTERVAL_MS, never blocks door/buzzer ──
+  // DHT22 physically can't produce fresh data faster than ~2s. Reading it every
+  // loop (like before) meant frequent NaN results, and an early `return` on NaN
+  // used to skip the door check AND buzzer update entirely — that was the real
+  // cause of the buzzer/door "waiting" on DHT timing instead of reacting live.
+  if (now - lastDhtMs >= DHT_READ_INTERVAL_MS) {
+    lastDhtMs = now;
+    float t = dht.readTemperature();
+    float h = dht.readHumidity();
+    if (!isnan(t) && !isnan(h)) {
+      lastTemp = t;
+      lastHum  = h;
+    }   // on failure, just keep the last known-good reading
+  }
+
   // ── STATUS (matches Laravel thresholds) ───────────────────────────────────
   String status;
-  if (hum > CRIT_HUM)      status = "crit";
-  else if (hum > WARN_HUM) status = "warn";
-  else                      status = "normal";
+  if (lastHum > CRIT_HUM)      status = "crit";
+  else if (lastHum > WARN_HUM) status = "warn";
+  else                          status = "normal";
 
   // ── BLINK for OLED warning ────────────────────────────────────────────────
   if (now - lastBlinkMs > 500) {
@@ -283,12 +379,12 @@ void loop() {
 
   display.setCursor(0, 14);
   display.print("Temp: ");
-  display.print(temp, 1);
+  display.print(lastTemp, 1);
   display.print(" C");
 
   display.setCursor(0, 26);
   display.print("Hum : ");
-  display.print(hum, 1);
+  display.print(lastHum, 1);
   display.print(" %");
 
   display.setCursor(0, 38);
@@ -310,24 +406,53 @@ void loop() {
   display.display();
 
   // ── FIREBASE PUSH every 5 seconds ─────────────────────────────────────────
+  // Each RTDB call below blocks on network I/O (can be 100-500ms+ over WiFi).
+  // updateBuzzer() is called between each one so a mid-sequence tone (e.g. the
+  // CALM chime) keeps advancing in real time instead of freezing on one note
+  // until the whole Firebase block finishes.
   if (now - lastSendMs > 5000 && Firebase.ready()) {
     lastSendMs = now;
 
-    Firebase.RTDB.setFloat(&fbdo,  String(FIREBASE_PATH) + "/temperature", temp);
-    Firebase.RTDB.setFloat(&fbdo,  String(FIREBASE_PATH) + "/humidity",    hum);
+    Firebase.RTDB.setFloat(&fbdo,  String(FIREBASE_PATH) + "/temperature", lastTemp);
+    updateBuzzer();
+    Firebase.RTDB.setFloat(&fbdo,  String(FIREBASE_PATH) + "/humidity",    lastHum);
+    updateBuzzer();
     Firebase.RTDB.setString(&fbdo, String(FIREBASE_PATH) + "/status",      status);
+    updateBuzzer();
     Firebase.RTDB.setString(&fbdo, String(FIREBASE_PATH) + "/door",        doorState);
+    updateBuzzer();
     Firebase.RTDB.setInt(&fbdo,    String(FIREBASE_PATH) + "/openCount",   openCount);
+    updateBuzzer();
 
     Serial.printf("[Firebase] temp=%.1f hum=%.1f status=%s door=%s opens=%d\n",
-                  temp, hum, status.c_str(), doorState.c_str(), openCount);
+                  lastTemp, lastHum, status.c_str(), doorState.c_str(), openCount);
   }
 
   // ── READ protection_mode from Firebase every 30 seconds ───────────────────
   if (now - lastProtCheckMs > PROT_CHECK_INTERVAL && Firebase.ready()) {
     lastProtCheckMs = now;
+    bool prevProtectionMode = protectionMode;
     if (Firebase.RTDB.getBool(&fbdo, String(FIREBASE_PATH) + "/protection_mode", &protectionMode)) {
       Serial.printf("[Firebase] protection_mode = %s\n", protectionMode ? "ON" : "OFF");
     }
+
+    // Protection mode changed (or is ON) while the door is ALREADY open — the
+    // buzzer only reacts to open/close transitions, so without this check,
+    // turning protection ON after the door was already open would stay silent.
+    if (protectionMode != prevProtectionMode) {
+      if (protectionMode && doorOpenNow) {
+        // Protection just turned ON and door is currently open — start alarming now.
+        noTone(BUZZER_PIN);
+        seqStep = 0;
+        tone(BUZZER_PIN, ALARM_FREQ);
+        buzzerMode = ALARM;
+        buzzerMs   = now;
+      } else if (!protectionMode && (buzzerMode == ALARM || buzzerMode == ALARM_PAUSE)) {
+        // Protection just turned OFF mid-alarm — stop immediately.
+        noTone(BUZZER_PIN);
+        buzzerMode = SILENT;
+      }
+    }
+    updateBuzzer();
   }
 }

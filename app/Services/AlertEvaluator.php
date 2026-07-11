@@ -16,27 +16,6 @@ class AlertEvaluator
         $settings  = $device->settings;
         $triggered = [];
 
-        // Humidity — critical takes priority over warning
-        if ($reading->humidity !== null) {
-            if ((float) $reading->humidity > $settings->crit_humidity) {
-                if ($this->shouldAlert($device, 'humidity_crit')) {
-                    $triggered[] = [
-                        'type'    => 'humidity_crit',
-                        'message' => "Critical humidity at {$device->name}: {$reading->humidity}% (limit: {$settings->crit_humidity}%)",
-                        'value'   => $reading->humidity,
-                    ];
-                }
-            } elseif ((float) $reading->humidity > $settings->warn_humidity) {
-                if ($this->shouldAlert($device, 'humidity_warn')) {
-                    $triggered[] = [
-                        'type'    => 'humidity_warn',
-                        'message' => "High humidity at {$device->name}: {$reading->humidity}% (limit: {$settings->warn_humidity}%)",
-                        'value'   => $reading->humidity,
-                    ];
-                }
-            }
-        }
-
         // Temperature
         if ($reading->temperature !== null) {
             if ($settings->temp_max !== null && (float) $reading->temperature > (float) $settings->temp_max) {

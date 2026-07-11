@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Jobs\SendGmailAlert;
 use App\Models\Alert;
 use App\Models\Device;
+use App\Models\DeviceSetting;
 use App\Models\Reading;
 use App\Services\AlertEvaluator;
 use App\Services\Firebase\FirebaseReader;
@@ -16,6 +17,14 @@ class PollDeviceData extends Command
 {
     protected $signature = 'drybox:poll';
     protected $description = 'Poll all active devices from Firebase, store readings, and evaluate alerts';
+
+    // Silica gel humidity-drift signal — compares closed-door humidity shortly
+    // after replacement against the recent closed-door average, independent of
+    // the fixed silica_interval_days countdown.
+    private const SILICA_DRIFT_RH_THRESHOLD   = 10.0;
+    private const SILICA_BASELINE_WINDOW_DAYS = 3;
+    private const SILICA_RECENT_WINDOW_HOURS  = 24;
+    private const SILICA_MIN_SAMPLES          = 10;
 
     public function handle(FirebaseReader $firebase, AlertEvaluator $evaluator, FungusRisk $fungus): int
     {
@@ -111,6 +120,10 @@ class PollDeviceData extends Command
                             }
                         }
                     }
+
+                    // Silica gel humidity-drift check — fires even if the fixed
+                    // interval hasn't elapsed yet, when the gel is clearly saturating faster.
+                    $this->checkSilicaDrift($device, $settings, $recipients);
                 }
             } catch (Throwable $e) {
                 $this->error("Failed [{$device->name}]: {$e->getMessage()}");
@@ -119,5 +132,69 @@ class PollDeviceData extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Compare closed-door humidity shortly after the last replacement (baseline)
+     * against the recent closed-door average. A material rise means the gel is
+     * saturating faster than the fixed interval assumes.
+     */
+    private function checkSilicaDrift(Device $device, DeviceSetting $settings, array $recipients): void
+    {
+        $replacedAt = $settings->silica_last_replaced_at;
+
+        $baseline = $device->readings()
+            ->whereRaw('LOWER(door_state) = ?', ['closed'])
+            ->whereNotNull('humidity')
+            ->whereBetween('recorded_at', [$replacedAt, $replacedAt->copy()->addDays(self::SILICA_BASELINE_WINDOW_DAYS)])
+            ->selectRaw('AVG(humidity) as avg_h, COUNT(*) as cnt')
+            ->first();
+
+        $recent = $device->readings()
+            ->whereRaw('LOWER(door_state) = ?', ['closed'])
+            ->whereNotNull('humidity')
+            ->where('recorded_at', '>=', now()->subHours(self::SILICA_RECENT_WINDOW_HOURS))
+            ->selectRaw('AVG(humidity) as avg_h, COUNT(*) as cnt')
+            ->first();
+
+        if (($baseline->cnt ?? 0) < self::SILICA_MIN_SAMPLES || ($recent->cnt ?? 0) < self::SILICA_MIN_SAMPLES) {
+            return;
+        }
+
+        $baselineAvg = (float) $baseline->avg_h;
+        $recentAvg   = (float) $recent->avg_h;
+        $drift       = $recentAvg - $baselineAvg;
+
+        if ($drift < self::SILICA_DRIFT_RH_THRESHOLD) {
+            return;
+        }
+
+        $alreadyToday = $device->alerts()
+            ->where('type', 'silica_drift')
+            ->whereDate('created_at', today())
+            ->exists();
+
+        if ($alreadyToday) {
+            return;
+        }
+
+        $alert = Alert::create([
+            'device_id' => $device->id,
+            'type'      => 'silica_drift',
+            'message'   => sprintf(
+                'Silica gel losing effectiveness at %s: closed-door humidity baseline rose from %.1f%% to %.1f%% since last replacement (+%.1f pts). Consider replacing early.',
+                $device->name,
+                $baselineAvg,
+                $recentAvg,
+                $drift,
+            ),
+            'value' => $recentAvg,
+        ]);
+
+        $this->warn("  Alert: [silica_drift] {$alert->message}");
+
+        foreach (array_filter($recipients) as $email) {
+            SendGmailAlert::dispatch($alert->id, $email);
+        }
     }
 }

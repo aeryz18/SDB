@@ -23,6 +23,10 @@ class SetupController extends Controller
     /** POST step 1 — create the device, go to firmware step */
     public function storeDevice(Request $request)
     {
+        if ($request->user()->devices()->where('is_active', true)->exists()) {
+            return back()->with('error', 'You already have a device connected. Remove it first to add a replacement.');
+        }
+
         $validated = $request->validate([
             'name'          => ['required', 'string', 'max:100'],
             'location'      => ['nullable', 'string', 'max:100'],

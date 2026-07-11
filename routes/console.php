@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('drybox:poll')->everyMinute();
+Schedule::command('drybox:monthly-report')->monthlyOn(1, '01:00');

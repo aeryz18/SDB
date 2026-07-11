@@ -53,6 +53,15 @@ self.addEventListener('fetch', event => {
     return; // let browser handle it normally
   }
 
+  // Never intercept the OAuth handoff — Socialite's redirect to
+  // accounts.google.com (and back) means the browser hands this navigation
+  // off to a real cross-origin load, which aborts our fetch() from this
+  // handler's point of view and would otherwise trip the offline fallback
+  // below even though the network is fine.
+  if (url.pathname.startsWith('/auth/')) {
+    return;
+  }
+
   // Never cache POST/PUT/DELETE
   if (event.request.method !== 'GET') return;
 

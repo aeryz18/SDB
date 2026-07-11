@@ -12,6 +12,10 @@ class DeviceController extends Controller
 {
     public function store(Request $request)
     {
+        if ($request->user()->devices()->where('is_active', true)->exists()) {
+            return back()->with('error', 'You already have a device connected. Remove it first to add a replacement.');
+        }
+
         $validated = $request->validate([
             'name'          => ['required', 'string', 'max:100'],
             'location'      => ['nullable', 'string', 'max:100'],
@@ -49,7 +53,7 @@ class DeviceController extends Controller
 
         // Resolve outstanding silica alerts
         $device->alerts()
-            ->where('type', 'silica_due')
+            ->whereIn('type', ['silica_due', 'silica_drift'])
             ->whereNull('resolved_at')
             ->update(['resolved_at' => now()]);
 

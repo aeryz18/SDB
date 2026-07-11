@@ -10,8 +10,8 @@
         <div>
             <h1 class="font-display-lg text-display-lg text-primary">Equipment Inventory</h1>
             <p class="font-body-base text-on-surface-variant mt-1">
-                Live status of all connected dry storage units —
-                <span class="font-semibold text-on-surface">{{ $devices->count() }} unit{{ $devices->count() === 1 ? '' : 's' }} registered</span>
+                Live status of your dry storage unit —
+                <span class="font-semibold text-on-surface">{{ $device ? 1 : 0 }} unit{{ $device ? '' : 's' }} registered</span>
             </p>
         </div>
         <div class="flex items-center gap-3 self-start sm:self-auto">
@@ -33,11 +33,18 @@
     </div>
     @endif
 
+    @if(session('error'))
+    <div class="flex items-center gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm font-medium">
+        <span class="material-symbols-outlined text-base">error</span>
+        {{ session('error') }}
+    </div>
+    @endif
+
     {{-- ── Summary Stats Bar ──────────────────────────────────────── --}}
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-1">
             <span class="font-label-caps text-label-caps text-on-surface-variant">ACTIVE UNITS</span>
-            <span class="font-data-num text-3xl text-on-background leading-none">{{ $devices->count() }}</span>
+            <span class="font-data-num text-3xl text-on-background leading-none">{{ $device ? 1 : 0 }}</span>
             <span class="text-xs text-slate-400">registered devices</span>
         </div>
         <div class="bg-white border border-outline-variant rounded-xl p-4 flex flex-col gap-1">
@@ -60,7 +67,7 @@
     {{-- ── Equipment Cards Grid ─────────────────────────────────── --}}
     <section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 
-        @forelse ($devices as $device)
+        @if ($device)
         @php
             $silicaReplaced = $device->settings?->silica_last_replaced_at;
             $interval       = $device->settings?->silica_interval_days ?? 90;
@@ -193,23 +200,25 @@
                 </button>
             </div>
         </div>
-        @empty
+        @else
         <div class="col-span-full py-16 flex flex-col items-center justify-center text-slate-400">
             <span class="material-symbols-outlined text-5xl mb-3 text-slate-300">sensors_off</span>
-            <p class="font-semibold text-slate-500 mb-1">No units registered yet</p>
-            <p class="text-sm">Add your first DryBox unit below to start monitoring.</p>
+            <p class="font-semibold text-slate-500 mb-1">No unit registered yet</p>
+            <p class="text-sm">Add your DryBox unit below to start monitoring.</p>
         </div>
-        @endforelse
+        @endif
 
-        {{-- Add New Unit tile --}}
+        {{-- Add New Unit tile — only until the one device is registered --}}
+        @unless($device)
         <div class="border-2 border-dashed border-outline-variant rounded-xl flex flex-col items-center justify-center p-8 text-slate-400 hover:bg-slate-50 hover:border-primary/40 transition-colors cursor-pointer group"
              onclick="openAddModal()">
             <div class="w-14 h-14 rounded-full bg-slate-100 group-hover:bg-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-all">
                 <span class="material-symbols-outlined text-3xl group-hover:text-primary transition-colors">add</span>
             </div>
             <span class="font-semibold text-sm group-hover:text-primary transition-colors">Add New Unit</span>
-            <p class="text-xs mt-1 text-center">Register another IoT sensor node</p>
+            <p class="text-xs mt-1 text-center">Register your IoT sensor node</p>
         </div>
+        @endunless
     </section>
 
     {{-- ── Detail Modal ──────────────────────────────────────────── --}}
@@ -361,14 +370,14 @@
 @endsection
 
 @php
-$deviceJson = $devices->map(fn($d) => [
-    'id'            => $d->id,
-    'name'          => $d->name,
-    'firebase_path' => $d->firebase_path,
-    'location'      => $d->location,
-    'interval_days' => $d->settings?->silica_interval_days ?? 90,
-    'protection'    => (bool) ($d->settings?->protection_mode ?? false),
-]);
+$deviceJson = $device ? [[
+    'id'            => $device->id,
+    'name'          => $device->name,
+    'firebase_path' => $device->firebase_path,
+    'location'      => $device->location,
+    'interval_days' => $device->settings?->silica_interval_days ?? 90,
+    'protection'    => (bool) ($device->settings?->protection_mode ?? false),
+]] : [];
 @endphp
 
 @section('scripts')
