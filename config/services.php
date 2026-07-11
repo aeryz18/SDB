@@ -36,9 +36,14 @@ return [
     ],
 
     'google' => [
-        'client_id'     => env('GOOGLE_CLIENT_ID'),
+        'client_id' => env('GOOGLE_CLIENT_ID'),
         'client_secret' => env('GOOGLE_CLIENT_SECRET'),
-        'redirect'      => rtrim(env('APP_URL', 'http://localhost:8000'), '/') . '/auth/google/callback',
+        'redirect' => rtrim(env('APP_URL', 'http://localhost:8000'), '/').'/auth/google/callback',
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
     ],
 
 ];

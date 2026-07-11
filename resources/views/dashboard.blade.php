@@ -7,22 +7,16 @@ $warnThresh = $settings?->warn_humidity ?? 35;
 $critThresh = $settings?->crit_humidity ?? 45;
 $firebasePath = $device?->firebase_path ?? 'drybox';
 
-$fungusColors = [
-    'Low'      => ['bar' => 'bg-emerald-500', 'text' => 'text-emerald-600', 'badge' => 'bg-emerald-50 text-emerald-700 border border-emerald-200', 'icon' => 'check_circle'],
-    'Moderate' => ['bar' => 'bg-amber-500',   'text' => 'text-amber-600',   'badge' => 'bg-amber-50 text-amber-700 border border-amber-200',     'icon' => 'warning'],
-    'High'     => ['bar' => 'bg-red-500',     'text' => 'text-red-600',     'badge' => 'bg-red-50 text-red-700 border border-red-200',           'icon' => 'dangerous'],
-];
-$fColor = $fungusColors[$fungusRisk['level']] ?? $fungusColors['Low'];
 $protected = $settings?->protection_mode ?? false;
 
-// Silica gel status
-$silicaReplaced  = $settings?->silica_last_replaced_at;
-$silicaInterval  = (int) ($settings?->silica_interval_days ?? 90);
-$silicaDaysSince = $silicaReplaced ? (int) now()->diffInDays($silicaReplaced) : $silicaInterval + 1;
-$silicaDaysLeft  = $silicaInterval - $silicaDaysSince;   // negative means overdue
-$silicaDue       = $silicaDaysLeft <= 0;
-$silicaWarning   = !$silicaDue && $silicaDaysLeft <= 14;
-$silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSince / $silicaInterval * 100))) : 100;
+// Silica gel status (computed by App\Services\SilicaStatus)
+$silicaReplaced  = $silica['replaced'];
+$silicaInterval  = $silica['interval'];
+$silicaDaysSince = $silica['days_since'];
+$silicaDaysLeft  = $silica['days_left'];
+$silicaDue       = $silica['due'];
+$silicaWarning   = $silica['warning'];
+$silicaBarPct    = $silica['bar_pct'];
 @endphp
 
 @section('content')
@@ -46,7 +40,7 @@ $silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSinc
             <span class="material-symbols-outlined" style="font-size:18px">rocket_launch</span>
             Start Setup Wizard
         </a>
-        <a href="{{ route('equipment') }}"
+        <a href="{{ route('device') }}"
            class="px-8 py-3.5 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl font-semibold text-sm transition-colors flex items-center gap-2">
             <span class="material-symbols-outlined" style="font-size:18px">add</span>
             Add Device Manually
@@ -118,6 +112,29 @@ $silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSinc
         </div>
     </div>
 
+    {{-- ── Silica Gel Login Alert ──────────────────────────────── --}}
+    {{-- Server-rendered from $silica (no JS/session flag needed) — re-evaluates
+         on every dashboard load, so it keeps appearing until marked replaced. --}}
+    @if($silica['warning'] || $silica['due'])
+    <section class="{{ $silica['due'] ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200' }} border rounded-xl p-md flex items-start gap-4">
+        <div class="p-3 {{ $silica['due'] ? 'bg-red-500' : 'bg-amber-500' }} rounded-full text-white flex-shrink-0">
+            <span class="material-symbols-outlined">science</span>
+        </div>
+        <div class="flex-1">
+            <h3 class="font-headline-md {{ $silica['due'] ? 'text-red-800' : 'text-amber-800' }}">
+                @if($silica['due'])
+                    Silica gel replacement overdue by {{ abs($silica['days_left']) }}d — replace now
+                @else
+                    Silica gel replacement due in {{ $silica['days_left'] }}d
+                @endif
+            </h3>
+            <p class="font-body-sm {{ $silica['due'] ? 'text-red-600' : 'text-amber-600' }} mt-1">
+                <a href="{{ route('silica.log') }}" class="underline font-semibold">View silica log</a>
+            </p>
+        </div>
+    </section>
+    @endif
+
     {{-- ── Dynamic Alert Banner ────────────────────────────────── --}}
     <section id="alert-banner" class="hidden" aria-live="polite"></section>
 
@@ -187,62 +204,8 @@ $silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSinc
 
     </section>
 
-    {{-- ── Fungus Risk + Silica Gel + Protection Row ────────── --}}
-    <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-grid-gutter">
-
-        {{-- Fungus Risk Gauge --}}
-        <div class="bg-white border border-outline-variant rounded-xl p-md hover:shadow-md transition-shadow">
-            <div class="flex items-start justify-between mb-4">
-                <div>
-                    <span class="font-label-caps text-label-caps text-on-surface-variant block">FUNGUS RISK</span>
-                    <div class="flex items-center gap-3 mt-2">
-                        <span class="font-headline-md text-xl font-bold {{ $fColor['text'] }}">{{ $fungusRisk['level'] }}</span>
-                        <span class="text-xs px-2.5 py-1 rounded-full font-bold {{ $fColor['badge'] }}">
-                            {{ $fungusRisk['score'] }}/100
-                        </span>
-                    </div>
-                </div>
-                <div class="p-3 {{ $fungusRisk['level'] === 'High' ? 'bg-red-50' : ($fungusRisk['level'] === 'Moderate' ? 'bg-amber-50' : 'bg-emerald-50') }} rounded-xl">
-                    <span class="material-symbols-outlined {{ $fColor['text'] }}">{{ $fColor['icon'] }}</span>
-                </div>
-            </div>
-
-            {{-- Exposure bar --}}
-            <div class="mb-4">
-                <div class="flex justify-between text-xs text-slate-400 mb-1.5">
-                    <span>Elevated RH exposure (24 h)</span>
-                    <span>{{ $fungusRisk['score'] }}%</span>
-                </div>
-                <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
-                    <div class="h-full {{ $fColor['bar'] }} rounded-full transition-all duration-700"
-                         style="width:{{ $fungusRisk['score'] }}%"></div>
-                </div>
-                <div class="flex justify-between text-[10px] text-slate-300 mt-1">
-                    <span>Safe</span><span>Moderate</span><span>High</span>
-                </div>
-            </div>
-
-            {{-- Fired rules --}}
-            @if(!empty($fungusRisk['fired_rules']))
-            <div class="mb-3 space-y-1.5">
-                @foreach($fungusRisk['reasons'] as $reason)
-                <div class="flex items-start gap-1.5 text-xs {{ $fungusRisk['level'] === 'High' ? 'text-red-600' : 'text-amber-600' }}">
-                    <span class="material-symbols-outlined flex-shrink-0" style="font-size:13px;margin-top:1px">arrow_right</span>
-                    <span>{{ $reason }}</span>
-                </div>
-                @endforeach
-            </div>
-            @endif
-
-            <div class="pt-3 border-t border-slate-100 text-xs text-on-surface-variant flex items-center gap-1.5">
-                <span class="material-symbols-outlined" style="font-size:14px">history</span>
-                @if($readingCount > 0)
-                    Based on {{ $readingCount }} readings in the last 24 h (updated each minute)
-                @else
-                    No readings yet — start the scheduler to collect data
-                @endif
-            </div>
-        </div>
+    {{-- ── Silica Gel + Protection Row ─────────────────────── --}}
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-grid-gutter">
 
         {{-- Silica Gel Status --}}
         <div class="bg-white border border-outline-variant rounded-xl p-md hover:shadow-md transition-shadow">
@@ -250,18 +213,18 @@ $silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSinc
                 <div>
                     <span class="font-label-caps text-label-caps text-on-surface-variant block">SILICA GEL</span>
                     <div class="flex items-center gap-3 mt-2">
-                        @if($silicaDue)
+                        @if(!$silicaReplaced)
+                            <span class="font-headline-md text-xl font-bold text-slate-400">Unknown</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-slate-50 text-slate-500 border border-slate-200">Not logged</span>
+                        @elseif($silicaDue)
                             <span class="font-headline-md text-xl font-bold text-red-600">Overdue</span>
                             <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-red-50 text-red-700 border border-red-200">Replace now</span>
                         @elseif($silicaWarning)
                             <span class="font-headline-md text-xl font-bold text-amber-600">{{ $silicaDaysLeft }}d left</span>
                             <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">Replace soon</span>
-                        @elseif($silicaReplaced)
+                        @else
                             <span class="font-headline-md text-xl font-bold text-emerald-600">{{ $silicaDaysLeft }}d left</span>
                             <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">OK</span>
-                        @else
-                            <span class="font-headline-md text-xl font-bold text-slate-400">Unknown</span>
-                            <span class="text-xs px-2.5 py-1 rounded-full font-bold bg-slate-50 text-slate-500 border border-slate-200">Not logged</span>
                         @endif
                     </div>
                 </div>
@@ -293,12 +256,12 @@ $silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSinc
                 <div class="flex items-start gap-1.5 text-xs {{ $silicaDue ? 'text-red-600' : ($silicaWarning ? 'text-amber-600' : 'text-slate-400') }}">
                     <span class="material-symbols-outlined flex-shrink-0" style="font-size:13px;margin-top:1px">arrow_right</span>
                     <span>
-                        @if($silicaDue)
+                        @if(!$silicaReplaced)
+                            No replacement has been logged yet for this device.
+                        @elseif($silicaDue)
                             {{ abs($silicaDaysLeft) }} day(s) overdue — gel may be saturated and no longer absorbing moisture effectively.
                         @elseif($silicaWarning)
                             {{ $silicaDaysLeft }} days until scheduled replacement (every {{ $silicaInterval }} days).
-                        @else
-                            No replacement has been logged yet for this device.
                         @endif
                     </span>
                 </div>
@@ -306,9 +269,9 @@ $silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSinc
             @endif
 
             <div class="pt-3 border-t border-slate-100">
-                <a href="{{ route('equipment') }}" class="text-xs text-primary font-semibold flex items-center gap-1 hover:underline">
+                <a href="{{ route('silica.log') }}" class="text-xs text-primary font-semibold flex items-center gap-1 hover:underline">
                     <span class="material-symbols-outlined" style="font-size:14px">open_in_new</span>
-                    Mark as replaced on Equipment page
+                    View full silica log
                 </a>
             </div>
         </div>
@@ -343,9 +306,9 @@ $silicaBarPct    = $silicaReplaced ? min(100, max(0, (int) round($silicaDaysSinc
             </div>
 
             <div class="pt-3 border-t border-slate-100">
-                <a href="{{ route('equipment') }}" class="text-xs text-primary font-semibold flex items-center gap-1 hover:underline">
+                <a href="{{ route('device') }}" class="text-xs text-primary font-semibold flex items-center gap-1 hover:underline">
                     <span class="material-symbols-outlined" style="font-size:14px">open_in_new</span>
-                    Change on Equipment page
+                    Change on Device page
                 </a>
             </div>
         </div>

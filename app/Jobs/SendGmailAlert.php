@@ -16,11 +16,12 @@ class SendGmailAlert implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public int $tries   = 3;
+    public int $tries = 3;
+
     public int $backoff = 60;
 
     public function __construct(
-        private readonly int    $alertId,
+        private readonly int $alertId,
         private readonly string $recipientEmail,
     ) {}
 
@@ -36,6 +37,7 @@ class SendGmailAlert implements ShouldQueue
 
         if (! $owner->google_refresh_token) {
             Log::warning("No Gmail refresh token for user {$owner->id} — alert email skipped.");
+
             return;
         }
 
@@ -43,11 +45,11 @@ class SendGmailAlert implements ShouldQueue
 
         try {
             $sender->send(
-                fromEmail:    $owner->email,
+                fromEmail: $owner->email,
                 refreshToken: $owner->google_refresh_token,
-                to:           $this->recipientEmail,
-                subject:      '[DryBox AI] ' . $alert->message,
-                htmlBody:     $html,
+                to: $this->recipientEmail,
+                subject: '[DryBox AI] '.$alert->message,
+                htmlBody: $html,
             );
 
             $alert->update(['emailed_at' => now()]);
@@ -56,6 +58,7 @@ class SendGmailAlert implements ShouldQueue
                 // Token was revoked — clear it so the UI can prompt reconnection
                 $owner->update(['google_refresh_token' => null]);
                 Log::warning("Gmail token revoked for user {$owner->id}. User must reconnect Google.");
+
                 return;
             }
             throw $e;

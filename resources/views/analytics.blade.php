@@ -255,7 +255,7 @@ $deviceName   = $primary?->name ?? 'DryBox';
         {{-- No device yet --}}
         <div class="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm">
             <span class="material-symbols-outlined text-base">info</span>
-            No active device found. <a href="{{ route('equipment') }}" class="font-bold underline ml-1">Add a device</a> to generate reports.
+            No active device found. <a href="{{ route('device') }}" class="font-bold underline ml-1">Add a device</a> to generate reports.
         </div>
         @endif
     </section>

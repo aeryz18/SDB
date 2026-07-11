@@ -41,9 +41,9 @@ class ReportGenerator
         $out = fopen('php://memory', 'w+');
 
         fputcsv($out, ['DryBox AI — Condition Report']);
-        fputcsv($out, ['Device',          $device->name . ' (' . $device->firebase_path . '/)']);
+        fputcsv($out, ['Device',          $device->name.' ('.$device->firebase_path.'/)']);
         fputcsv($out, ['Location',         $device->location ?? 'N/A']);
-        fputcsv($out, ['Period',           $from->format('Y-m-d') . ' to ' . $to->format('Y-m-d')]);
+        fputcsv($out, ['Period',           $from->format('Y-m-d').' to '.$to->format('Y-m-d')]);
         fputcsv($out, ['Generated',        now()->format('Y-m-d H:i:s')]);
         fputcsv($out, ['Total Readings',   (int) ($humStats->cnt ?? 0)]);
         fputcsv($out, ['Total Alerts',     $alertCount]);
@@ -55,9 +55,9 @@ class ReportGenerator
             fputcsv($out, [
                 $r->recorded_at->format('Y-m-d H:i:s'),
                 $r->temperature !== null ? number_format((float) $r->temperature, 2) : '',
-                $r->humidity    !== null ? number_format((float) $r->humidity,    2) : '',
-                $r->status      ?? '',
-                $r->door_state  ?? '',
+                $r->humidity !== null ? number_format((float) $r->humidity, 2) : '',
+                $r->status ?? '',
+                $r->door_state ?? '',
             ]);
         }
         fputcsv($out, []);
@@ -70,7 +70,7 @@ class ReportGenerator
                 $a->type,
                 $a->message,
                 $a->value !== null ? number_format((float) $a->value, 2) : '',
-                $a->emailed_at?->format('Y-m-d H:i:s')  ?? '',
+                $a->emailed_at?->format('Y-m-d H:i:s') ?? '',
                 $a->resolved_at?->format('Y-m-d H:i:s') ?? '',
             ]);
         }

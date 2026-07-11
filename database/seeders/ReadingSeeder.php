@@ -9,11 +9,11 @@ use Illuminate\Database\Seeder;
 
 /**
  * Backfills 5-minute-interval dummy readings for May and June 2026 against
- * the first user's first device, so the monthly rule-based report summary
- * has real history to evaluate. May is deliberately calm (Low fungus risk,
- * no fired rules); June deliberately escalates into humid/stormy conditions
- * that cross every FungusRisk rule threshold (F1-F5), so the two monthly
- * reports look visibly different. Run standalone:
+ * the first user's first device, so the monthly report and the silica-drift
+ * detector have real history to evaluate. May is deliberately calm (low,
+ * stable humidity); June deliberately escalates into humid/stormy conditions
+ * with sustained high-RH periods, so the two monthly reports look visibly
+ * different. Run standalone:
  *   php artisan db:seed --class=ReadingSeeder
  */
 class ReadingSeeder extends Seeder
@@ -26,6 +26,7 @@ class ReadingSeeder extends Seeder
 
         if (! $user) {
             $this->command?->warn('No user found — skipping ReadingSeeder.');
+
             return;
         }
 
@@ -33,11 +34,12 @@ class ReadingSeeder extends Seeder
 
         if (! $device) {
             $this->command?->warn('No device found for user — skipping ReadingSeeder.');
+
             return;
         }
 
         $rangeStart = Carbon::create(2026, 5, 1, 0, 0, 0);
-        $rangeEnd   = Carbon::create(2026, 6, 30, 23, 59, 59);
+        $rangeEnd = Carbon::create(2026, 6, 30, 23, 59, 59);
 
         Reading::where('device_id', $device->id)
             ->whereBetween('recorded_at', [$rangeStart, $rangeEnd])
@@ -52,16 +54,16 @@ class ReadingSeeder extends Seeder
     private function seedMonth(int $deviceId, int $year, int $month, bool $calm): void
     {
         $start = Carbon::create($year, $month, 1, 0, 0, 0);
-        $end   = $start->copy()->endOfMonth();
+        $end = $start->copy()->endOfMonth();
 
         // Spread a handful of "storm" days evenly through the humid month —
-        // sustained 80-95% RH for a 10h window pushes readings well past the
-        // FungusRisk F1 (>=10% above 80% RH) and F2 (>=20% above 70% RH,
-        // >=50% in mould-temp band) thresholds.
+        // sustained 80-95% RH for a 10h window pushes readings into sustained
+        // high-humidity territory, to exercise the humidity charts and the
+        // silica drift detector with realistic extremes.
         $stormDays = [];
         if (! $calm) {
             $daysInMonth = $start->daysInMonth;
-            $numStorms   = 13;
+            $numStorms = 13;
             for ($i = 0; $i < $numStorms; $i++) {
                 $stormDays[1 + intdiv($i * $daysInMonth, $numStorms)] = true;
             }
@@ -69,13 +71,13 @@ class ReadingSeeder extends Seeder
 
         $doorEventsPerDay = $calm ? 2 : 5;
 
-        $buffer    = [];
-        $cursor    = $start->copy();
+        $buffer = [];
+        $cursor = $start->copy();
         $openUntil = null;
 
         while ($cursor->lte($end)) {
-            $day     = (int) $cursor->format('j');
-            $hour    = (int) $cursor->format('G');
+            $day = (int) $cursor->format('j');
+            $hour = (int) $cursor->format('G');
             $isStorm = ! $calm && isset($stormDays[$day]) && $hour >= 10 && $hour < 20;
 
             // Temperature: gentle daily wave, always inside the 20-30C mould band
@@ -84,7 +86,7 @@ class ReadingSeeder extends Seeder
             $temp = max(21.0, min(29.0, $temp));
 
             if ($calm) {
-                // May: baseline well under every FungusRisk threshold.
+                // May: baseline well under the warn/crit humidity thresholds.
                 $hum = 46 + sin((($hour + 6) / 24) * 2 * M_PI) * 5 + $this->noise(3);
                 $hum = max(30.0, min(58.0, $hum));
             } elseif ($isStorm) {
@@ -114,11 +116,11 @@ class ReadingSeeder extends Seeder
             $status = $hum > 45 ? 'crit' : ($hum > 35 ? 'warn' : 'normal');
 
             $buffer[] = [
-                'device_id'   => $deviceId,
+                'device_id' => $deviceId,
                 'temperature' => round($temp, 2),
-                'humidity'    => round($hum, 2),
-                'status'      => $status,
-                'door_state'  => $doorState,
+                'humidity' => round($hum, 2),
+                'status' => $status,
+                'door_state' => $doorState,
                 'recorded_at' => $cursor->format('Y-m-d H:i:s'),
             ];
 

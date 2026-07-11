@@ -37,8 +37,8 @@ sequence for every **active** device:
 2. **Store** — `Reading::create([...])` inserts one row into the `readings` table:
    `device_id`, `temperature`, `humidity`, `status`, `door_state`, `recorded_at => now()`
    (`PollDeviceData.php:50-57`).
-3. **Evaluate rules** — runs `AlertEvaluator::evaluate()` + `evaluateFungus()` against
-   this new reading plus the last 60 readings, and the silica-due / silica-drift checks
+3. **Evaluate rules** — runs `AlertEvaluator::evaluate()` against this new reading,
+   plus the silica-due / silica-upcoming / silica-drift checks
    (`PollDeviceData.php:68-95, 97-127`). Any triggered rule creates its own `Alert` row
    and dispatches a `SendGmailAlert` job.
 
@@ -78,7 +78,7 @@ MySQL and hands the result to a Blade view:
 
 | Route | Controller method | What it queries |
 |---|---|---|
-| `GET /dashboard` | `dashboard()` | Last 24h of `readings` → runs `FungusRisk::evaluate()` live for the risk gauge (lines 24-31) |
+| `GET /dashboard` | `dashboard()` | Runs `SilicaStatus::evaluate()` for the silica gel status card + login banner (lines 24-31) |
 | `GET /analytics` | `analytics()` | `readings` grouped by hour via `selectRaw`/`groupByRaw` for the chart, plus `alerts` counts, over a `from`/`to` range from the query string (lines 78-95) |
 | `GET /report` | `ReportController::generate()` | Same idea via `ReportGenerator`, streamed out as a CSV download |
 | `GET /equipment` | `equipment()` | Just the device/settings row — live values on this page still come from Path A's Firebase JS |
@@ -105,7 +105,7 @@ Browser request ────┤
 | | Source | Freshness | Used for |
 |---|---|---|---|
 | **Path A** | Firebase RTDB, direct from browser | Live (~5s) | Current temp/humidity/door/status on dashboard & equipment pages |
-| **Path B** | MySQL, via Laravel controllers | As of last `drybox:poll` run (≤1min old) | Charts, alert history, CSV reports, monthly emails, fungus risk scoring |
+| **Path B** | MySQL, via Laravel controllers | As of last `drybox:poll` run (≤1min old) | Charts, alert history, CSV reports, monthly emails, silica gel status |
 
 MySQL exists specifically because Path B's workload — `AVG`/`MAX`/`GROUP BY` hourly
 aggregates, alert-cooldown lookups (`where('type', ...)->where('created_at', '>=', ...)`),

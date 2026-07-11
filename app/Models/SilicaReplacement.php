@@ -6,15 +6,13 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['device_id', 'type', 'message', 'value', 'emailed_at', 'resolved_at'])]
-class Alert extends Model
+#[Fillable(['device_id', 'replaced_at', 'interval_days_actual'])]
+class SilicaReplacement extends Model
 {
     protected function casts(): array
     {
         return [
-            'value' => 'decimal:2',
-            'emailed_at' => 'datetime',
-            'resolved_at' => 'datetime',
+            'replaced_at' => 'datetime',
         ];
     }
 

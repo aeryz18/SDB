@@ -11,9 +11,9 @@
 | **1** | MySQL schema + models + server-side Firebase read | ✅ Done |
 | **2** | Sign in with Google (Socialite + store refresh token) | ✅ Done |
 | **3** | Scheduler + history (poll every minute → `readings` table) | ✅ Done |
-| **4** | Alert rules + Gmail API email (fungus/humidity/temp, deduped) | ✅ Done |
+| **4** | Alert rules + Gmail API email (temp/tamper/silica, deduped) | ✅ Done |
 | **5** | Multi-device CRUD + protection mode + silica gel timer | ✅ Done |
-| **6** | Server-side thresholds on dashboard + fungus gauge (off localStorage) | ⬜ Not started |
+| **6** | Server-side thresholds on dashboard + silica status card (off localStorage) | ⬜ Not started |
 | **7** | Condition reports (CSV download from real history) | ✅ Done |
 
 ---
@@ -73,14 +73,14 @@ Then open: `http://localhost:8000`
 
 ---
 
-## Phase 6 Preview — Server-side thresholds + dashboard fungus gauge
+## Phase 6 Preview — Server-side thresholds + dashboard silica status
 
-**Goal:** Move warn/crit thresholds off `localStorage` onto `device_settings`. Dashboard shows fungus risk level and protection state from DB.
+**Goal:** Move warn/crit thresholds off `localStorage` onto `device_settings`. Dashboard shows silica gel status and protection state from DB.
 
 **What changes:**
 - `settings.blade.php` — threshold fields save to `device_settings` (replace localStorage writes)
-- `dashboard.blade.php` — read thresholds from server (pass from `DryBoxController::dashboard()`), add fungus risk gauge + protection badge
-- `DryBoxController::dashboard()` — pass active device + settings + latest fungus level to view
+- `dashboard.blade.php` — read thresholds from server (pass from `DryBoxController::dashboard()`), add silica status card + protection badge
+- `DryBoxController::dashboard()` — pass active device + settings + silica status to view
 
 **Start when ready:** say "start Phase 6"
 

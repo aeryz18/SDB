@@ -13,7 +13,7 @@ class AlertEvaluator
      */
     public function evaluate(Device $device, Reading $reading): array
     {
-        $settings  = $device->settings;
+        $settings = $device->settings;
         $triggered = [];
 
         // Temperature
@@ -21,17 +21,17 @@ class AlertEvaluator
             if ($settings->temp_max !== null && (float) $reading->temperature > (float) $settings->temp_max) {
                 if ($this->shouldAlert($device, 'temp')) {
                     $triggered[] = [
-                        'type'    => 'temp',
+                        'type' => 'temp',
                         'message' => "Temperature too high at {$device->name}: {$reading->temperature}°C (max: {$settings->temp_max}°C)",
-                        'value'   => $reading->temperature,
+                        'value' => $reading->temperature,
                     ];
                 }
             } elseif ($settings->temp_min !== null && (float) $reading->temperature < (float) $settings->temp_min) {
                 if ($this->shouldAlert($device, 'temp')) {
                     $triggered[] = [
-                        'type'    => 'temp',
+                        'type' => 'temp',
                         'message' => "Temperature too low at {$device->name}: {$reading->temperature}°C (min: {$settings->temp_min}°C)",
-                        'value'   => $reading->temperature,
+                        'value' => $reading->temperature,
                     ];
                 }
             }
@@ -41,38 +41,14 @@ class AlertEvaluator
         if ($settings->protection_mode && strtolower($reading->door_state ?? '') === 'open') {
             if ($this->shouldAlert($device, 'tamper')) {
                 $triggered[] = [
-                    'type'    => 'tamper',
+                    'type' => 'tamper',
                     'message' => "Security alert: {$device->name} was opened without authorization!",
-                    'value'   => null,
+                    'value' => null,
                 ];
             }
         }
 
         return $triggered;
-    }
-
-    /**
-     * Evaluate fungus risk level and return an alert payload if High.
-     */
-    public function evaluateFungus(Device $device, string $riskLevel): array
-    {
-        if (! ($device->settings?->fungus_alerts_enabled ?? true)) {
-            return [];
-        }
-
-        if ($riskLevel !== FungusRisk::HIGH) {
-            return [];
-        }
-
-        if (! $this->shouldAlert($device, 'fungus')) {
-            return [];
-        }
-
-        return [[
-            'type'    => 'fungus',
-            'message' => "High fungus/mold risk at {$device->name}. Sustained high humidity in warm conditions.",
-            'value'   => null,
-        ]];
     }
 
     private function shouldAlert(Device $device, string $type): bool

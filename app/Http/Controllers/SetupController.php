@@ -28,20 +28,20 @@ class SetupController extends Controller
         }
 
         $validated = $request->validate([
-            'name'          => ['required', 'string', 'max:100'],
-            'location'      => ['nullable', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:100'],
+            'location' => ['nullable', 'string', 'max:100'],
             'firebase_path' => ['required', 'string', 'max:100', 'unique:devices,firebase_path'],
         ]);
 
         $device = $request->user()->devices()->create([
-            'name'          => $validated['name'],
-            'location'      => $validated['location'] ?? null,
+            'name' => $validated['name'],
+            'location' => $validated['location'] ?? null,
             'firebase_path' => ltrim($validated['firebase_path'], '/'),
-            'is_active'     => true,
+            'is_active' => true,
         ]);
 
         DeviceSetting::create([
-            'device_id'     => $device->id,
+            'device_id' => $device->id,
             'notify_emails' => [$request->user()->email],
         ]);
 
@@ -56,7 +56,7 @@ class SetupController extends Controller
         return view('setup.firmware', [
             'device' => $device,
             'apiKey' => config('firebase.api_key'),
-            'dbUrl'  => config('firebase.database_url'),
+            'dbUrl' => config('firebase.database_url'),
         ]);
     }
 

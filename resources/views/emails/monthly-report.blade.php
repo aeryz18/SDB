@@ -1,11 +1,3 @@
-@php
-$fungusColors = [
-    'Low'      => ['bg' => '#ecfdf5', 'text' => '#047857', 'border' => '#a7f3d0'],
-    'Moderate' => ['bg' => '#fffbeb', 'text' => '#b45309', 'border' => '#fde68a'],
-    'High'     => ['bg' => '#fef2f2', 'text' => '#b91c1c', 'border' => '#fecaca'],
-];
-$fColor = $fungusColors[$fungusRisk['level']] ?? $fungusColors['Low'];
-@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -95,29 +87,6 @@ $fColor = $fungusColors[$fungusRisk['level']] ?? $fungusColors['Low'];
                 <td colspan="2" style="padding:14px 10px;text-align:center;border-top:1px solid #e2e8f0;">
                   <span style="color:#64748b;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Avg Door Opens / Day</span><br>
                   <span style="color:#0f172a;font-size:18px;font-weight:700;">{{ $stats['avg_door_opens_per_day'] }}</span>
-                </td>
-              </tr>
-            </table>
-
-            <table width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0;background:{{ $fColor['bg'] }};border:1px solid {{ $fColor['border'] }};border-radius:8px;">
-              <tr>
-                <td style="padding:16px 20px;">
-                  <span style="color:#64748b;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;">Rule-Based Fungus Risk Assessment</span><br>
-                  <span style="color:{{ $fColor['text'] }};font-size:16px;font-weight:700;">{{ $fungusRisk['level'] }}</span>
-                  <span style="color:{{ $fColor['text'] }};font-size:12px;font-weight:600;">&nbsp;({{ $fungusRisk['score'] }}/100)</span>
-
-                  @if(!empty($fungusRisk['fired_rules']))
-                    <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">
-                      @foreach($fungusRisk['reasons'] as $reason)
-                        <tr>
-                          <td style="padding:3px 0;color:{{ $fColor['text'] }};font-size:12px;vertical-align:top;width:14px;">&bull;</td>
-                          <td style="padding:3px 0;color:#374151;font-size:12px;line-height:1.4;">{{ $reason }}</td>
-                        </tr>
-                      @endforeach
-                    </table>
-                  @else
-                    <p style="margin:8px 0 0;color:#374151;font-size:12px;">No fungus-risk rules triggered this month.</p>
-                  @endif
                 </td>
               </tr>
             </table>

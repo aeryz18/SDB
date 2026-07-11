@@ -184,10 +184,10 @@
         <nav class="flex-1 px-3 py-4 space-y-0.5">
             @php
                 $navItems = [
-                    ['route' => 'dashboard', 'icon' => 'dashboard',   'label' => 'Dashboard'],
-                    ['route' => 'equipment', 'icon' => 'inventory_2', 'label' => 'Equipment'],
-                    ['route' => 'analytics', 'icon' => 'insights',    'label' => 'Analytics'],
-                    ['route' => 'settings',  'icon' => 'settings',    'label' => 'Settings'],
+                    ['route' => 'dashboard',  'icon' => 'dashboard',   'label' => 'Dashboard'],
+                    ['route' => 'device',     'icon' => 'devices',     'label' => 'Device'],
+                    ['route' => 'silica.log', 'icon' => 'science',     'label' => 'Silica Log'],
+                    ['route' => 'analytics',  'icon' => 'insights',    'label' => 'Analytics'],
                 ];
             @endphp
             @foreach($navItems as $item)
@@ -217,10 +217,10 @@
         <div class="flex justify-around items-center h-16">
             @php
                 $mobileNav = [
-                    ['route' => 'dashboard', 'icon' => 'dashboard',   'label' => 'Dashboard'],
-                    ['route' => 'equipment', 'icon' => 'inventory_2', 'label' => 'Equipment'],
-                    ['route' => 'analytics', 'icon' => 'insights',    'label' => 'Analytics'],
-                    ['route' => 'settings',  'icon' => 'settings',    'label' => 'Settings'],
+                    ['route' => 'dashboard',  'icon' => 'dashboard',   'label' => 'Dashboard'],
+                    ['route' => 'device',     'icon' => 'devices',     'label' => 'Device'],
+                    ['route' => 'silica.log', 'icon' => 'science',     'label' => 'Silica'],
+                    ['route' => 'analytics',  'icon' => 'insights',    'label' => 'Analytics'],
                 ];
             @endphp
             @foreach($mobileNav as $item)

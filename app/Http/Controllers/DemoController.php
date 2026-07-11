@@ -12,6 +12,7 @@ class DemoController extends Controller
     public function enter(Request $request)
     {
         $request->session()->put('demo_mode', true);
+
         return redirect()->route('demo.dashboard');
     }
 
@@ -21,6 +22,7 @@ class DemoController extends Controller
     public function exit(Request $request)
     {
         $request->session()->forget('demo_mode');
+
         return redirect()->route('landing');
     }
 

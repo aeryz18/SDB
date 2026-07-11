@@ -31,9 +31,10 @@
                   'humidity_crit' => ['bg'=>'#fef2f2','border'=>'#fca5a5','text'=>'#dc2626','label'=>'CRITICAL HUMIDITY'],
                   'humidity_warn' => ['bg'=>'#fffbeb','border'=>'#fcd34d','text'=>'#d97706','label'=>'HIGH HUMIDITY'],
                   'temp'          => ['bg'=>'#fff7ed','border'=>'#fb923c','text'=>'#ea580c','label'=>'TEMPERATURE ALERT'],
-                  'fungus'        => ['bg'=>'#f0fdf4','border'=>'#86efac','text'=>'#16a34a','label'=>'FUNGUS RISK'],
-                  'silica_due'    => ['bg'=>'#eff6ff','border'=>'#93c5fd','text'=>'#2563eb','label'=>'SILICA GEL DUE'],
-                  'tamper'        => ['bg'=>'#fdf4ff','border'=>'#e879f9','text'=>'#a21caf','label'=>'SECURITY ALERT'],
+                  'silica_due'      => ['bg'=>'#eff6ff','border'=>'#93c5fd','text'=>'#2563eb','label'=>'SILICA GEL DUE'],
+                  'silica_upcoming' => ['bg'=>'#fffbeb','border'=>'#fcd34d','text'=>'#d97706','label'=>'SILICA GEL DUE SOON'],
+                  'silica_drift'    => ['bg'=>'#f0fdfa','border'=>'#5eead4','text'=>'#0d9488','label'=>'SILICA GEL DRIFT DETECTED'],
+                  'tamper'          => ['bg'=>'#fdf4ff','border'=>'#e879f9','text'=>'#a21caf','label'=>'SECURITY ALERT'],
                 ];
                 $c = $colors[$alert->type] ?? ['bg'=>'#f8fafc','border'=>'#cbd5e1','text'=>'#475569','label'=>strtoupper($alert->type)];
               @endphp

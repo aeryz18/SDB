@@ -9,29 +9,34 @@ use App\Models\DeviceSetting;
 use App\Models\Reading;
 use App\Services\AlertEvaluator;
 use App\Services\Firebase\FirebaseReader;
-use App\Services\FungusRisk;
+use App\Services\SilicaStatus;
 use Illuminate\Console\Command;
 use Throwable;
 
 class PollDeviceData extends Command
 {
     protected $signature = 'drybox:poll';
+
     protected $description = 'Poll all active devices from Firebase, store readings, and evaluate alerts';
 
     // Silica gel humidity-drift signal — compares closed-door humidity shortly
     // after replacement against the recent closed-door average, independent of
     // the fixed silica_interval_days countdown.
-    private const SILICA_DRIFT_RH_THRESHOLD   = 10.0;
-    private const SILICA_BASELINE_WINDOW_DAYS = 3;
-    private const SILICA_RECENT_WINDOW_HOURS  = 24;
-    private const SILICA_MIN_SAMPLES          = 10;
+    private const SILICA_DRIFT_RH_THRESHOLD = 10.0;
 
-    public function handle(FirebaseReader $firebase, AlertEvaluator $evaluator, FungusRisk $fungus): int
+    private const SILICA_BASELINE_WINDOW_DAYS = 3;
+
+    private const SILICA_RECENT_WINDOW_HOURS = 24;
+
+    private const SILICA_MIN_SAMPLES = 10;
+
+    public function handle(FirebaseReader $firebase, AlertEvaluator $evaluator, SilicaStatus $silicaStatus): int
     {
         $devices = Device::where('is_active', true)->with('settings', 'alerts')->get();
 
         if ($devices->isEmpty()) {
             $this->info('No active devices found.');
+
             return self::SUCCESS;
         }
 
@@ -41,6 +46,7 @@ class PollDeviceData extends Command
 
                 if (empty($data)) {
                     $this->warn("No data at path: {$device->firebase_path}");
+
                     continue;
                 }
 
@@ -48,11 +54,11 @@ class PollDeviceData extends Command
 
                 // Store reading
                 $reading = Reading::create([
-                    'device_id'   => $device->id,
+                    'device_id' => $device->id,
                     'temperature' => isset($data['temperature']) ? (float) $data['temperature'] : null,
-                    'humidity'    => isset($data['humidity'])    ? (float) $data['humidity']    : null,
-                    'status'      => $data['status']             ?? null,
-                    'door_state'  => $data[$doorField]           ?? null,
+                    'humidity' => isset($data['humidity']) ? (float) $data['humidity'] : null,
+                    'status' => $data['status'] ?? null,
+                    'door_state' => $data[$doorField] ?? null,
                     'recorded_at' => now(),
                 ]);
 
@@ -60,21 +66,12 @@ class PollDeviceData extends Command
                     'Polled [%s] temp=%.1f°C  hum=%.1f%%  status=%s',
                     $device->name,
                     $data['temperature'] ?? 0,
-                    $data['humidity']    ?? 0,
-                    $data['status']      ?? 'n/a',
+                    $data['humidity'] ?? 0,
+                    $data['status'] ?? 'n/a',
                 ));
 
                 // Evaluate threshold + tamper alerts
                 $triggered = $evaluator->evaluate($device, $reading);
-
-                // Evaluate fungus risk from last 60 readings (~1 hour at 1/min)
-                $recentReadings = $device->readings()
-                    ->orderByDesc('recorded_at')
-                    ->limit(60)
-                    ->get();
-
-                $riskResult = $fungus->evaluate($recentReadings, $device->settings);
-                $triggered  = array_merge($triggered, $evaluator->evaluateFungus($device, $riskResult['level']));
 
                 // Persist alerts and dispatch email jobs
                 $recipients = $device->settings?->notify_emails ?? [$device->user->email ?? null];
@@ -82,9 +79,9 @@ class PollDeviceData extends Command
                 foreach ($triggered as $payload) {
                     $alert = Alert::create([
                         'device_id' => $device->id,
-                        'type'      => $payload['type'],
-                        'message'   => $payload['message'],
-                        'value'     => $payload['value'],
+                        'type' => $payload['type'],
+                        'message' => $payload['message'],
+                        'value' => $payload['value'],
                     ]);
 
                     $this->warn("  Alert: [{$payload['type']}] {$payload['message']}");
@@ -94,36 +91,34 @@ class PollDeviceData extends Command
                     }
                 }
 
-                // Silica gel daily check (once per day per device)
+                // Silica gel daily checks. A device qualifies once it has either
+                // an actual replacement logged OR a manual next-replacement-date
+                // override set (a device that's only ever had its due date set
+                // manually, never "replaced", still needs to be evaluated).
                 $settings = $device->settings;
-                if ($settings && $settings->silica_last_replaced_at) {
-                    $dueDate = $settings->silica_last_replaced_at->copy()->addDays($settings->silica_interval_days);
-                    if ($dueDate->isPast()) {
-                        $alreadyToday = $device->alerts()
-                            ->where('type', 'silica_due')
-                            ->whereDate('created_at', today())
-                            ->exists();
+                if ($settings && ($settings->silica_last_replaced_at || $settings->silica_next_replacement_at)) {
+                    $silica = $silicaStatus->evaluate($settings);
 
-                        if (! $alreadyToday) {
-                            $daysPast    = (int) $dueDate->diffInDays(now());
-                            $silicaAlert = Alert::create([
-                                'device_id' => $device->id,
-                                'type'      => 'silica_due',
-                                'message'   => "Silica gel overdue for {$device->name} by {$daysPast} day(s). Replace immediately.",
-                                'value'     => null,
-                            ]);
-
-                            $this->warn("  Alert: [silica_due] {$silicaAlert->message}");
-
-                            foreach (array_filter($recipients) as $email) {
-                                SendGmailAlert::dispatch($silicaAlert->id, $email);
-                            }
-                        }
+                    if ($silica['due']) {
+                        $this->fireSilicaAlert($device, 'silica_due', sprintf(
+                            'Silica gel overdue for %s by %d day(s). Replace immediately.',
+                            $device->name,
+                            abs($silica['days_left']),
+                        ), $recipients);
+                    } elseif ($silica['warning']) {
+                        $this->fireSilicaAlert($device, 'silica_upcoming', sprintf(
+                            'Silica gel for %s will need replacement in %d day(s).',
+                            $device->name,
+                            $silica['days_left'],
+                        ), $recipients);
                     }
 
                     // Silica gel humidity-drift check — fires even if the fixed
                     // interval hasn't elapsed yet, when the gel is clearly saturating faster.
-                    $this->checkSilicaDrift($device, $settings, $recipients);
+                    // Unaffected by the once-per-cycle change above (still daily-guarded).
+                    if ($settings->silica_last_replaced_at) {
+                        $this->checkSilicaDrift($device, $settings, $recipients);
+                    }
                 }
             } catch (Throwable $e) {
                 $this->error("Failed [{$device->name}]: {$e->getMessage()}");
@@ -132,6 +127,38 @@ class PollDeviceData extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Create a silica alert and dispatch emails. Fires once per replacement
+     * cycle (guarded on an unresolved alert of this type already existing),
+     * not once per day — markSilicaReplaced() and updateSilicaNextReplacementAt()
+     * both resolve outstanding silica_due/silica_upcoming alerts, which re-arms
+     * this guard for the next cycle.
+     */
+    private function fireSilicaAlert(Device $device, string $type, string $message, array $recipients): void
+    {
+        $alreadyOpen = $device->alerts()
+            ->where('type', $type)
+            ->whereNull('resolved_at')
+            ->exists();
+
+        if ($alreadyOpen) {
+            return;
+        }
+
+        $alert = Alert::create([
+            'device_id' => $device->id,
+            'type' => $type,
+            'message' => $message,
+            'value' => null,
+        ]);
+
+        $this->warn("  Alert: [{$type}] {$alert->message}");
+
+        foreach (array_filter($recipients) as $email) {
+            SendGmailAlert::dispatch($alert->id, $email);
+        }
     }
 
     /**
@@ -162,8 +189,8 @@ class PollDeviceData extends Command
         }
 
         $baselineAvg = (float) $baseline->avg_h;
-        $recentAvg   = (float) $recent->avg_h;
-        $drift       = $recentAvg - $baselineAvg;
+        $recentAvg = (float) $recent->avg_h;
+        $drift = $recentAvg - $baselineAvg;
 
         if ($drift < self::SILICA_DRIFT_RH_THRESHOLD) {
             return;
@@ -180,8 +207,8 @@ class PollDeviceData extends Command
 
         $alert = Alert::create([
             'device_id' => $device->id,
-            'type'      => 'silica_drift',
-            'message'   => sprintf(
+            'type' => 'silica_drift',
+            'message' => sprintf(
                 'Silica gel losing effectiveness at %s: closed-door humidity baseline rose from %.1f%% to %.1f%% since last replacement (+%.1f pts). Consider replacing early.',
                 $device->name,
                 $baselineAvg,

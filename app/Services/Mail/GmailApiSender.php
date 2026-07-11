@@ -48,10 +48,10 @@ class GmailApiSender
     {
         $response = Http::asForm()
             ->post('https://oauth2.googleapis.com/token', [
-                'client_id'     => config('services.google.client_id'),
+                'client_id' => config('services.google.client_id'),
                 'client_secret' => config('services.google.client_secret'),
                 'refresh_token' => $refreshToken,
-                'grant_type'    => 'refresh_token',
+                'grant_type' => 'refresh_token',
             ])
             ->throw()
             ->json();
@@ -65,9 +65,9 @@ class GmailApiSender
             "From: DryBox AI <{$from}>",
             "To: {$to}",
             "Subject: {$subject}",
-            "MIME-Version: 1.0",
-            "Content-Type: text/html; charset=UTF-8",
-            "",
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=UTF-8',
+            '',
             $html,
         ]);
 
@@ -83,25 +83,25 @@ class GmailApiSender
         string $attachmentContent,
         string $attachmentMimeType,
     ): string {
-        $boundary = 'drybox_' . bin2hex(random_bytes(16));
+        $boundary = 'drybox_'.bin2hex(random_bytes(16));
 
         $mime = implode("\r\n", [
             "From: DryBox AI <{$from}>",
             "To: {$to}",
             "Subject: {$subject}",
-            "MIME-Version: 1.0",
+            'MIME-Version: 1.0',
             "Content-Type: multipart/mixed; boundary=\"{$boundary}\"",
-            "",
+            '',
             "--{$boundary}",
-            "Content-Type: text/html; charset=UTF-8",
-            "",
+            'Content-Type: text/html; charset=UTF-8',
+            '',
             $html,
-            "",
+            '',
             "--{$boundary}",
             "Content-Type: {$attachmentMimeType}; name=\"{$attachmentFilename}\"",
             "Content-Disposition: attachment; filename=\"{$attachmentFilename}\"",
-            "Content-Transfer-Encoding: base64",
-            "",
+            'Content-Transfer-Encoding: base64',
+            '',
             chunk_split(base64_encode($attachmentContent)),
             "--{$boundary}--",
         ]);

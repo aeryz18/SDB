@@ -11,7 +11,7 @@ class FirebaseReader
     public function read(string $path): array
     {
         $snapshot = $this->database->getReference($path)->getSnapshot();
-        $value    = $snapshot->getValue();
+        $value = $snapshot->getValue();
 
         if (is_array($value)) {
             return $value;

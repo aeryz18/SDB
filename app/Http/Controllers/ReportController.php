@@ -14,8 +14,8 @@ class ReportController extends Controller
     {
         $validated = $request->validate([
             'device_id' => ['required', 'integer', 'exists:devices,id'],
-            'from'      => ['required', 'date'],
-            'to'        => ['required', 'date', 'after_or_equal:from'],
+            'from' => ['required', 'date'],
+            'to' => ['required', 'date', 'after_or_equal:from'],
         ]);
 
         $device = Device::where('id', $validated['device_id'])
@@ -23,9 +23,9 @@ class ReportController extends Controller
             ->firstOrFail();
 
         $from = Carbon::parse($validated['from'])->startOfDay();
-        $to   = Carbon::parse($validated['to'])->endOfDay();
+        $to = Carbon::parse($validated['to'])->endOfDay();
 
-        $csv      = $generator->generate($device, $from, $to);
+        $csv = $generator->generate($device, $from, $to);
         $filename = $generator->filename($device, $from, $to);
 
         return response()->streamDownload(function () use ($csv) {

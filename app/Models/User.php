@@ -21,8 +21,8 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at'    => 'datetime',
-            'password'             => 'hashed',
+            'email_verified_at' => 'datetime',
+            'password' => 'hashed',
             'google_refresh_token' => 'encrypted',
         ];
     }

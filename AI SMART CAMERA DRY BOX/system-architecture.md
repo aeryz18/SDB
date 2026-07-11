@@ -2,13 +2,13 @@
 
 ## 1. Purpose
 
-The AI Smart Camera Dry Box is a monitored storage cabinet for camera equipment (lenses, bodies) that prevents fungal growth on optics by continuously tracking internal temperature, humidity, and door activity, scoring fungal risk against literature-grounded thresholds, and alerting the user before conditions become damaging. Moisture control is passive (silica gel desiccant only — no electric dehumidifier), so the system's job is **detection and recommendation**, not active remediation.
+The AI Smart Camera Dry Box is a monitored storage cabinet for camera equipment (lenses, bodies) that protects the equipment from humidity-related damage by continuously tracking internal temperature, humidity, and door activity, managing silica gel desiccant replacement against configurable thresholds, and alerting the user before conditions become damaging. Moisture control is passive (silica gel desiccant only — no electric dehumidifier), so the system's job is **detection and recommendation**, not active remediation.
 
 The system follows the standard embedded systems pipeline:
 
 **Sensor → Controller → Actuator → Cloud**
 
-The decision-making core is a **deterministic, rule-based risk engine** hosted in the Cloud tier (Laravel) — there is no AI/LLM component anywhere in the decision path. ("AI" in the product name refers to the intelligent alerting/risk-scoring behavior, not a machine-learning model.)
+The alerting decision path is a **deterministic, rule-based engine** hosted in the Cloud tier (Laravel) — every automated alert (temperature, tamper, silica due/drift) traces back to a specific threshold crossing, not a model inference. An **on-demand Gemini AI suggestion** is available separately for silica gel replacement timing (analyzing the replacement log + recent sensor readings), but it does not drive any automated alert and only runs when the user explicitly asks for it.
 
 ---
 
@@ -26,7 +26,7 @@ The decision-making core is a **deterministic, rule-based risk engine** hosted i
 │ door      │     │ classifies │     │ buzzer     │     │ Laravel +MySQL  │
 │ sensor    │     │ status,    │     │ (alerting  │     │ (drybox:poll,   │
 │ (digital  │     │ drives     │     │ only — no  │     │  AlertEvaluator,│
-│ obstacle  │     │ actuators  │     │ moisture   │     │  FungusRisk,    │
+│ obstacle  │     │ actuators  │     │ moisture   │     │  SilicaStatus,  │
 │ detect)   │     │ locally    │     │ actuator)  │     │  Gmail alerts)  │
 └─────┬─────┘     └─────┬──────┘     └─────▲──────┘     └────────▲────────┘
       │                 │                  │                     │
@@ -81,27 +81,29 @@ This is where the real decision-making happens, split across Firebase (live stat
 | Table | Purpose |
 |---|---|
 | `devices` | Registry of physical boxes — owner, name, location, `firebase_path` |
-| `device_settings` | Per-device thresholds — `warn_humidity` (35), `crit_humidity` (45), `temp_min`/`temp_max`, `fungus_alerts_enabled`, `silica_last_replaced_at`, `silica_interval_days` (90), `protection_mode`, `notify_emails`, `alert_cooldown_minutes` (30) |
+| `device_settings` | Per-device thresholds — `warn_humidity` (35), `crit_humidity` (45), `temp_min`/`temp_max`, `silica_last_replaced_at`, `silica_interval_days` (90), `silica_next_replacement_at` (nullable manual override), `protection_mode`, `notify_emails`, `alert_cooldown_minutes` (30) |
 | `readings` | Per-minute sensor history — `device_id`, `temperature`, `humidity`, `status`, `door_state`, `recorded_at` |
-| `alerts` | Alert log — `device_id`, `type` (`temp`, `fungus`, `silica_due`, `silica_drift`, `tamper`; `humidity_warn`/`humidity_crit` retained for historical rows but no longer generated — live humidity is surfaced on the dashboard instead), `message`, `value`, `emailed_at`, `resolved_at` |
+| `alerts` | Alert log — `device_id`, `type` (`temp`, `silica_due`, `silica_upcoming`, `silica_drift`, `tamper`; `humidity_warn`/`humidity_crit` retained for historical rows but no longer generated — live humidity is surfaced on the dashboard instead), `message`, `value`, `emailed_at`, `resolved_at` |
+| `silica_replacements` | Replacement log — `device_id`, `replaced_at`, `interval_days_actual` |
 
-**Rule-based risk engine** — the classic four components of a rule-based recommendation system:
+**Rule-based alerting engine** — the classic four components of a rule-based system:
 
 | Component | Implementation |
 |---|---|
-| Knowledge base | Fungal biology thresholds — RH warn/crit bands, mould-growth temperature band (20–35 °C) |
+| Knowledge base | RH warn/crit bands, temperature min/max, silica replacement interval/thresholds |
 | Facts | Sensor readings streamed up from the Controller via Firebase, polled into MySQL every minute |
-| Inference engine | `AlertEvaluator` (temperature range + door tamper, cooldown-gated) and `FungusRisk` (scores 0–100 from % of readings above warn/crit thresholds, weighted by whether temperature sits in the mould-growth band) |
-| Output | `Low`/`Moderate`/`High` fungus risk level, temperature/tamper alerts, and silica gel replacement recommendations |
+| Inference engine | `AlertEvaluator` (temperature range + door tamper, cooldown-gated) and `SilicaStatus` (resolves a due date from either the fixed interval or a manual override, and derives due/warning state from it) |
+| Output | Temperature/tamper alerts, silica gel replacement recommendations, and (on-demand only) a Gemini AI-assisted replacement suggestion |
 
-**Why the risk engine lives in the Cloud and not the Controller:**
-- History-dependent scoring (fungus risk over recent readings, silica drift over days) needs data a microcontroller can't hold.
+**Why the alerting engine lives in the Cloud and not the Controller:**
+- History-dependent logic (silica drift over days) needs data a microcontroller can't hold.
 - Keeping the engine off the embedded device keeps firmware simple, testable, and cheap to run.
-- A rule-based (not AI/LLM) engine is transparent and auditable — every alert traces back to a specific threshold crossing in `AlertEvaluator`/`FungusRisk`.
+- The automated alerting path is rule-based and auditable — every alert traces back to a specific threshold crossing in `AlertEvaluator`/`SilicaStatus`. The Gemini AI suggestion (below) sits alongside this path, not inside it — it never fires an alert on its own.
 
-**Silica gel replacement recommendation** — two independent signals, both evaluated in the Cloud (`PollDeviceData`):
-1. **Fixed interval** — `silica_last_replaced_at + silica_interval_days` (90 days), checked once/day → `silica_due` alert.
+**Silica gel replacement recommendation** — several independent signals, evaluated in the Cloud:
+1. **Fixed interval** — `silica_last_replaced_at + silica_interval_days` (90 days by default), or a manual `silica_next_replacement_at` override when set → `silica_due`/`silica_upcoming` alerts (`PollDeviceData`, once per replacement cycle).
 2. **Humidity drift** — closed-door humidity average over the first 3 days after replacement vs. the closed-door average over the last 24 hours; fires `silica_drift` (once/day) if it has risen ≥10 points, provided both windows have ≥10 closed-door samples. Independent of the fixed interval, so it catches gel saturating faster than the 90-day assumption.
+3. **On-demand Gemini AI suggestion** — `GeminiSilicaAdvisor` analyzes the replacement log + recent sensor stats and suggests a next replacement date with reasoning, triggered manually from the Silica Log page. Not part of the automated alerting path.
 
 **Notifications** — `SendGmailAlert` (per-alert) and `SendMonthlyReport` (1st of each month, CSV attachment via `ReportGenerator`) both send through `GmailApiSender`, using the user's own Gmail account via OAuth refresh token (no SMTP). An `invalid_grant` response from Gmail clears the stored refresh token rather than retrying indefinitely.
 
@@ -115,8 +117,8 @@ This is where the real decision-making happens, split across Firebase (live stat
 4. **Cloud (Laravel, every 1 minute via `drybox:poll`)**:
    - Reads Firebase server-side (`FirebaseReader`, kreait SDK).
    - Stores a `Reading` row in MySQL.
-   - Runs `AlertEvaluator::evaluate()` (temperature range + door tamper) and `AlertEvaluator::evaluateFungus()` (only when `FungusRisk` reports `High` and fungus alerts are enabled).
-   - Once/day: checks silica gel due date and closed-door humidity drift.
+   - Runs `AlertEvaluator::evaluate()` (temperature range + door tamper).
+   - Checks silica gel due date (fires `silica_upcoming`/`silica_due` once per replacement cycle) and closed-door humidity drift (`silica_drift`, once/day).
    - Creates `Alert` rows and dispatches `SendGmailAlert` jobs for anything new (subject to per-type cooldown).
 5. **Queue worker**: `SendGmailAlert` → `GmailApiSender` → Gmail API → user's inbox.
 6. **Monthly**: `drybox:monthly-report` (1st of month, 01:00) dispatches `SendMonthlyReport` per recipient in `notify_emails`, attaching a CSV built by `ReportGenerator`.
@@ -128,11 +130,11 @@ This is where the real decision-making happens, split across Firebase (live stat
 | Design decision | Rationale |
 |---|---|
 | Sensor → Controller → Actuator → Cloud pipeline | Standard embedded architecture; cleanly separates fast local response from heavier historical analysis |
-| Rule-based risk engine in Cloud (Laravel), not Controller | Rolling-window scoring and multi-day drift detection need history a microcontroller can't hold; keeps firmware lightweight |
-| Rule-based engine (not ML/LLM) | Deterministic biology thresholds; no labeled training data; every alert is auditable back to a specific threshold crossing |
-| Firebase for live sync, MySQL for history | Firebase RTDB is cheap, low-latency push/subscribe for "right now" values; MySQL is the durable, queryable historical record the risk engine and reports run against |
+| Rule-based alerting engine in Cloud (Laravel), not Controller | Multi-day drift detection needs history a microcontroller can't hold; keeps firmware lightweight |
+| Rule-based automated alerting (not ML/LLM) | Deterministic thresholds; every alert is auditable back to a specific threshold crossing; the separate on-demand Gemini suggestion never fires an alert itself |
+| Firebase for live sync, MySQL for history | Firebase RTDB is cheap, low-latency push/subscribe for "right now" values; MySQL is the durable, queryable historical record the alerting engine and reports run against |
 | Actuator limited to alerting (no moisture actuator) | Silica gel is passive; system is explicitly monitor-and-alert, not monitor-and-correct |
-| Two-signal silica gel replacement logic | A fixed interval alone is fragile (gel can saturate early or last longer); pairing it with closed-door humidity drift catches both cases |
+| Multi-signal silica gel replacement logic | A fixed interval alone is fragile (gel can saturate early or last longer); pairing it with closed-door humidity drift, a manual override, and an on-demand AI suggestion covers more real-world cases |
 | Alert cooldowns per device/type | Prevents email spam from a threshold being crossed repeatedly within a short window |
 | Gmail via user's own OAuth account (no SMTP) | No shared mail server credentials to manage; `invalid_grant` handling keeps failures self-healing rather than retry-looping |
 
@@ -142,4 +144,4 @@ This is where the real decision-making happens, split across Firebase (live stat
 
 - **Active moisture actuator** (e.g. electric dehumidifier or heater) — would let the Actuator tier actually correct conditions rather than only alert. Not implemented; silica gel is the chosen moisture-control mechanism.
 - **Camera/vision component** — no image sensor or computer-vision pipeline is currently implemented despite the "Smart Camera Dry Box" name; the system monitors the *storage environment* for camera equipment, not the equipment via imaging.
-- **Agentic AI / LLM reporting layer** — a tool-calling layer for natural-language investigation on top of the risk engine was considered but descoped: the rule engine already produces clear, explainable output without the added compute/API cost and complexity.
+- **Agentic/autonomous AI** — the current Gemini integration is a single on-demand suggestion (user clicks a button, gets a date + reasoning), not a tool-calling or autonomous investigation layer. A broader agentic reporting layer on top of the alerting engine was considered but remains descoped: the deterministic engine already produces clear, explainable alerts without it.

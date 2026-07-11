@@ -15,7 +15,7 @@ class Reading extends Model
     {
         return [
             'temperature' => 'decimal:2',
-            'humidity'    => 'decimal:2',
+            'humidity' => 'decimal:2',
             'recorded_at' => 'datetime',
         ];
     }

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\FungusRisk;
+use App\Services\SilicaStatus;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -10,31 +10,19 @@ class DryBoxController extends Controller
 {
     public function dashboard()
     {
-        $device   = auth()->user()->devices()
+        $device = auth()->user()->devices()
             ->with('settings')
             ->where('is_active', true)
             ->orderBy('created_at')
             ->first();
 
-        $settings     = $device?->settings;
-        $fungusRisk   = ['level' => 'Low', 'score' => 0];
-        $readingCount = 0;
+        $settings = $device?->settings;
+        $silica = app(SilicaStatus::class)->evaluate($settings);
 
-        if ($device && $settings) {
-            $recent = $device->readings()
-                ->where('recorded_at', '>=', now()->subHours(24))
-                ->orderBy('recorded_at')
-                ->get();
-            $readingCount = $recent->count();
-            if ($readingCount > 0) {
-                $fungusRisk = app(FungusRisk::class)->evaluate($recent, $settings);
-            }
-        }
-
-        return view('dashboard', compact('device', 'settings', 'fungusRisk', 'readingCount'));
+        return view('dashboard', compact('device', 'settings', 'silica'));
     }
 
-    public function equipment()
+    public function device()
     {
         $device = auth()->user()->devices()
             ->with('settings')
@@ -42,12 +30,47 @@ class DryBoxController extends Controller
             ->orderBy('created_at')
             ->first();
 
-        return view('equipment', compact('device'));
+        $settings = $device?->settings;
+        $silica = app(SilicaStatus::class)->evaluate($settings);
+        $silicaAvgLifespan = null;
+
+        if ($device) {
+            $completedIntervals = $device->silicaReplacements()->whereNotNull('interval_days_actual');
+            if ((clone $completedIntervals)->count() >= 2) {
+                $silicaAvgLifespan = (int) round((clone $completedIntervals)->avg('interval_days_actual'));
+            }
+        }
+
+        return view('device', compact('device', 'settings', 'silica', 'silicaAvgLifespan'));
+    }
+
+    public function silicaLog()
+    {
+        $device = auth()->user()->devices()
+            ->with('settings')
+            ->where('is_active', true)
+            ->orderBy('created_at')
+            ->first();
+
+        $silica = app(SilicaStatus::class)->evaluate($device?->settings);
+        $silicaAvgLifespan = null;
+        $silicaHistory = collect();
+
+        if ($device) {
+            $silicaHistory = $device->silicaReplacements()->orderByDesc('replaced_at')->paginate(15);
+
+            $completedIntervals = $device->silicaReplacements()->whereNotNull('interval_days_actual');
+            if ((clone $completedIntervals)->count() >= 2) {
+                $silicaAvgLifespan = (int) round((clone $completedIntervals)->avg('interval_days_actual'));
+            }
+        }
+
+        return view('silica-log', compact('device', 'silica', 'silicaAvgLifespan', 'silicaHistory'));
     }
 
     public function analytics(Request $request)
     {
-        $primary  = auth()->user()->devices()
+        $primary = auth()->user()->devices()
             ->with('settings')
             ->where('is_active', true)
             ->orderBy('created_at')
@@ -63,16 +86,16 @@ class DryBoxController extends Controller
             ? Carbon::parse($request->to)->endOfDay()
             : now()->endOfDay();
 
-        $dbStats     = [];
+        $dbStats = [];
         $historyData = collect();
-        $rangeStats  = [];
+        $rangeStats = [];
 
         if ($primary) {
             $dbStats = [
                 'total_readings' => $primary->readings()->count(),
-                'total_alerts'   => $primary->alerts()->count(),
-                'earliest'       => $primary->readings()->min('recorded_at'),
-                'latest'         => $primary->readings()->max('recorded_at'),
+                'total_alerts' => $primary->alerts()->count(),
+                'earliest' => $primary->readings()->min('recorded_at'),
+                'latest' => $primary->readings()->max('recorded_at'),
             ];
 
             $historyData = $primary->readings()
@@ -89,24 +112,13 @@ class DryBoxController extends Controller
                 $rangeStats = [
                     'avg_humidity' => round($historyData->avg('avg_humidity'), 1),
                     'max_humidity' => $primary->readings()->whereBetween('recorded_at', [$from, $to])->max('humidity'),
-                    'avg_temp'     => round($historyData->avg('avg_temperature'), 1),
-                    'count'        => $historyData->sum('reading_count'),
+                    'avg_temp' => round($historyData->avg('avg_temperature'), 1),
+                    'count' => $historyData->sum('reading_count'),
                 ];
             }
         }
 
         return view('analytics', compact('primary', 'settings', 'dbStats', 'historyData', 'rangeStats', 'from', 'to'));
-    }
-
-    public function settings()
-    {
-        $device   = auth()->user()->devices()
-            ->with('settings')
-            ->where('is_active', true)
-            ->orderBy('created_at')
-            ->first();
-
-        return view('settings', ['device' => $device, 'settings' => $device?->settings]);
     }
 
     public function saveSettings(Request $request)
@@ -122,15 +134,15 @@ class DryBoxController extends Controller
         }
 
         $validated = $request->validate([
-            'warn_humidity'        => ['required', 'integer', 'min:10', 'max:60'],
-            'crit_humidity'        => ['required', 'integer', 'min:20', 'max:80'],
+            'warn_humidity' => ['required', 'integer', 'min:10', 'max:60'],
+            'crit_humidity' => ['required', 'integer', 'min:20', 'max:80'],
             'silica_interval_days' => ['required', 'integer', 'min:1', 'max:365'],
-            'notify_emails'        => ['nullable', 'string', 'max:500'],
+            'notify_emails' => ['nullable', 'string', 'max:500'],
         ]);
 
         $emails = collect(explode(',', $validated['notify_emails'] ?? ''))
-            ->map(fn($e) => trim($e))
-            ->filter(fn($e) => filter_var($e, FILTER_VALIDATE_EMAIL))
+            ->map(fn ($e) => trim($e))
+            ->filter(fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL))
             ->values()
             ->all();
 
@@ -139,14 +151,14 @@ class DryBoxController extends Controller
         }
 
         $device->settings->update([
-            'warn_humidity'        => $validated['warn_humidity'],
-            'crit_humidity'        => $validated['crit_humidity'],
+            'warn_humidity' => $validated['warn_humidity'],
+            'crit_humidity' => $validated['crit_humidity'],
             'silica_interval_days' => $validated['silica_interval_days'],
-            'notify_emails'        => $emails,
+            'notify_emails' => $emails,
         ]);
 
         return back()->with('success', 'Settings saved.')
-                     ->with('saved_crit', $validated['crit_humidity'])
-                     ->with('saved_warn', $validated['warn_humidity']);
+            ->with('saved_crit', $validated['crit_humidity'])
+            ->with('saved_warn', $validated['warn_humidity']);
     }
 }

@@ -18,12 +18,13 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $credentials = $request->validate([
-            'email'    => ['required', 'email'],
+            'email' => ['required', 'email'],
             'password' => ['required'],
         ]);
 
         if (Auth::attempt($credentials, $request->boolean('remember'))) {
             $request->session()->regenerate();
+
             return redirect()->intended(route('dashboard'));
         }
 
@@ -40,14 +41,14 @@ class AuthController extends Controller
     public function register(Request $request)
     {
         $request->validate([
-            'name'     => ['required', 'string', 'max:255'],
-            'email'    => ['required', 'email', 'unique:users'],
+            'name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'unique:users'],
             'password' => ['required', 'confirmed', 'min:8'],
         ]);
 
         $user = User::create([
-            'name'     => $request->name,
-            'email'    => $request->email,
+            'name' => $request->name,
+            'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
 
@@ -61,6 +62,7 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect()->route('landing');
     }
 
@@ -86,17 +88,17 @@ class AuthController extends Controller
         if ($user) {
             $user->update([
                 'google_id' => $googleUser->getId(),
-                'avatar'    => $googleUser->getAvatar(),
+                'avatar' => $googleUser->getAvatar(),
                 // Preserve existing token if Google doesn't send a new one
                 // (only issued on first consent or when prompt=consent forces it)
                 'google_refresh_token' => $googleUser->refreshToken ?? $user->getRawOriginal('google_refresh_token'),
             ]);
         } else {
             $user = User::create([
-                'name'                 => $googleUser->getName(),
-                'email'                => $googleUser->getEmail(),
-                'google_id'            => $googleUser->getId(),
-                'avatar'               => $googleUser->getAvatar(),
+                'name' => $googleUser->getName(),
+                'email' => $googleUser->getEmail(),
+                'google_id' => $googleUser->getId(),
+                'avatar' => $googleUser->getAvatar(),
                 'google_refresh_token' => $googleUser->refreshToken,
             ]);
         }
@@ -106,6 +108,7 @@ class AuthController extends Controller
 
         // New users (no devices) → setup wizard; returning users → dashboard
         $hasDevice = $user->devices()->where('is_active', true)->exists();
+
         return redirect()->intended($hasDevice ? route('dashboard') : route('setup'));
     }
 }
