@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Device | DryBox AI')
+@section('title', 'Device | Incognito')
 
 @php
 $warn = $settings?->warn_humidity        ?? 35;
@@ -84,7 +84,7 @@ $notifyList = implode(', ', $settings?->notify_emails ?? [auth()->user()->email]
                     </div>
                     <div class="bg-slate-50 rounded-xl p-4">
                         <div class="flex items-center gap-1.5 mb-1">
-                            <span class="material-symbols-outlined text-blue-400" style="font-size:16px">water_drop</span>
+                            <span class="material-symbols-outlined text-silica-400" style="font-size:16px">water_drop</span>
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Humidity</span>
                         </div>
                         <p class="font-data-num text-3xl text-on-background leading-none" id="stat-hum">--<span class="text-base text-slate-400">%</span></p>
@@ -99,7 +99,7 @@ $notifyList = implode(', ', $settings?->notify_emails ?? [auth()->user()->email]
                     <span id="hum-pct">--%</span>
                 </div>
                 <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div class="h-full bg-blue-500 rounded-full transition-all duration-700" id="bar" style="width:0%"></div>
+                    <div class="h-full bg-silica-500 rounded-full transition-all duration-700" id="bar" style="width:0%"></div>
                 </div>
             </div>
 
@@ -155,7 +155,7 @@ $notifyList = implode(', ', $settings?->notify_emails ?? [auth()->user()->email]
         <div class="py-16 px-6 flex flex-col items-center justify-center text-slate-400">
             <span class="material-symbols-outlined text-5xl mb-3 text-slate-300">sensors_off</span>
             <p class="font-semibold text-slate-500 mb-1">No unit registered yet</p>
-            <p class="text-sm mb-6 text-center">Add your DryBox unit to start monitoring.</p>
+            <p class="text-sm mb-6 text-center">Add your dry box unit to start monitoring.</p>
             <button onclick="openAddModal()" class="px-6 py-3 bg-primary text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-colors flex items-center gap-2">
                 <span class="material-symbols-outlined" style="font-size:18px">add</span>
                 Add New Unit
@@ -184,7 +184,7 @@ $notifyList = implode(', ', $settings?->notify_emails ?? [auth()->user()->email]
                         <input
                             name="name"
                             type="text"
-                            placeholder="e.g. DryBox Unit 2"
+                            placeholder="e.g. Dry Box Unit 2"
                             required
                             value="{{ old('name') }}"
                             class="w-full px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
@@ -251,11 +251,11 @@ $notifyList = implode(', ', $settings?->notify_emails ?? [auth()->user()->email]
         {{-- ── Left Column ────────────────────────────────────── --}}
         <div class="md:col-span-8 space-y-8">
 
-            {{-- Threshold Sliders --}}
+            {{-- Humidity Alerts --}}
             <section class="bg-white border border-outline-variant rounded-xl p-8">
                 <div class="flex items-center gap-3 mb-6">
-                    <span class="material-symbols-outlined text-primary">notification_important</span>
-                    <h2 class="font-headline-md text-headline-md text-on-surface">Alert Thresholds</h2>
+                    <span class="material-symbols-outlined text-silica-500">water_drop</span>
+                    <h2 class="font-headline-md text-headline-md text-on-surface">Humidity Alerts</h2>
                     @if(!$device)
                     <span class="ml-auto text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full font-semibold">No device — add one first</span>
                     @endif
@@ -302,29 +302,39 @@ $notifyList = implode(', ', $settings?->notify_emails ?? [auth()->user()->email]
                 </div>
             </section>
 
-            {{-- Device Settings --}}
+            {{-- Temperature Alerts --}}
+            <section class="bg-white border border-outline-variant rounded-xl p-8">
+                <div class="flex items-center gap-3 mb-6">
+                    <span class="material-symbols-outlined text-slate-500">device_thermostat</span>
+                    <h2 class="font-headline-md text-headline-md text-on-surface">Temperature Alerts</h2>
+                </div>
+                <div>
+                    <label for="temp-min" class="block font-label-caps text-label-caps text-on-surface-variant mb-2">ACCEPTABLE RANGE (°C)</label>
+                    <div class="flex items-center gap-2 max-w-sm">
+                        <input id="temp-min" name="temp_min" type="number" step="0.1" min="-10" max="60"
+                               value="{{ $settings?->temp_min }}"
+                               placeholder="Min"
+                               {{ !$device ? 'disabled' : '' }}
+                               class="w-full px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-slate-50 disabled:text-slate-400">
+                        <span class="text-slate-400">–</span>
+                        <input id="temp-max" name="temp_max" type="number" step="0.1" min="-10" max="60"
+                               value="{{ $settings?->temp_max }}"
+                               placeholder="Max"
+                               {{ !$device ? 'disabled' : '' }}
+                               class="w-full px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-slate-50 disabled:text-slate-400">
+                    </div>
+                    <p class="text-body-sm text-outline mt-2">Optional — leave a side blank to skip that limit. An alert fires when temperature goes outside this range.</p>
+                </div>
+            </section>
+
+            {{-- Notifications & Cooldown --}}
             <section class="bg-white border border-outline-variant rounded-xl p-8">
                 <div class="flex items-center gap-3 mb-6">
                     <span class="material-symbols-outlined text-primary">tune</span>
-                    <h2 class="font-headline-md text-headline-md text-on-surface">Device Settings</h2>
+                    <h2 class="font-headline-md text-headline-md text-on-surface">Notifications & Cooldown</h2>
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {{-- Silica interval --}}
-                    <div>
-                        <label for="silica-interval" class="block text-sm font-semibold text-slate-700 mb-1.5">
-                            <span class="flex items-center gap-1.5">
-                                <span class="material-symbols-outlined text-base text-slate-400">science</span>
-                                Silica Gel Replacement Interval (days)
-                            </span>
-                        </label>
-                        <input id="silica-interval" name="silica_interval_days" type="number"
-                               min="1" max="365" value="{{ $silicaDays }}"
-                               {{ !$device ? 'disabled' : '' }}
-                               class="w-full px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-slate-50 disabled:text-slate-400">
-                        <p class="text-xs text-slate-400 mt-1">An alert fires when silica gel is overdue by this many days.</p>
-                    </div>
-
                     {{-- Notify emails --}}
                     <div>
                         <label for="notify-emails" class="block text-sm font-semibold text-slate-700 mb-1.5">
@@ -340,7 +350,27 @@ $notifyList = implode(', ', $settings?->notify_emails ?? [auth()->user()->email]
                                class="w-full px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-slate-50 disabled:text-slate-400">
                         <p class="text-xs text-slate-400 mt-1">Comma-separated. Only valid email addresses are saved. Uses Gmail connected via Google login.</p>
                     </div>
+
+                    {{-- Alert cooldown --}}
+                    <div>
+                        <label for="alert-cooldown" class="block text-sm font-semibold text-slate-700 mb-1.5">
+                            <span class="flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-base text-slate-400">hourglass_empty</span>
+                                Alert Cooldown (minutes)
+                            </span>
+                        </label>
+                        <input id="alert-cooldown" name="alert_cooldown_minutes" type="number"
+                               min="1" max="1440" value="{{ $settings?->alert_cooldown_minutes ?? 30 }}"
+                               {{ !$device ? 'disabled' : '' }}
+                               class="w-full px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors disabled:bg-slate-50 disabled:text-slate-400">
+                        <p class="text-xs text-slate-400 mt-1">Minimum time between repeat emails for the same alert type (shared by humidity, temperature, and tamper alerts). Lower this temporarily for live demos.</p>
+                    </div>
                 </div>
+
+                <p class="text-xs text-slate-400 mt-6 pt-6 border-t border-slate-100 flex items-center gap-1.5">
+                    <span class="material-symbols-outlined text-slate-300" style="font-size:14px">science</span>
+                    Silica gel replacement interval and schedule are managed on the <a href="{{ route('silica.log') }}" class="text-primary font-semibold hover:underline">Silica Log</a> page.
+                </p>
             </section>
 
             {{-- Firebase Connection --}}
@@ -550,7 +580,7 @@ function getStatusMeta(statusStr, humidity) {
     } else if (s.includes('warning') || humidity > WARN_THRESH) {
         return { label:'WARNING',  badge:'bg-amber-100 text-amber-700',   bar:'bg-amber-500',   topBar:'bg-amber-500',   dot:'bg-amber-500',   text:'text-amber-600' };
     }
-    return     { label:'SAFE',     badge:'bg-emerald-100 text-emerald-700', bar:'bg-blue-500', topBar:'bg-emerald-500', dot:'bg-emerald-500', text:'text-emerald-600' };
+    return     { label:'SAFE',     badge:'bg-emerald-100 text-emerald-700', bar:'bg-silica-500', topBar:'bg-emerald-500', dot:'bg-emerald-500', text:'text-emerald-600' };
 }
 
 // ── Connection indicator (top pill + Firebase Connection card) ────
@@ -714,23 +744,25 @@ if (critSlider) critSlider.addEventListener('input', updateMarkers);
 if (warnSlider) warnSlider.addEventListener('input', updateMarkers);
 
 // Also trigger dirty flag on device settings fields
-['silica-interval', 'notify-emails'].forEach(id => {
+['notify-emails', 'temp-min', 'temp-max', 'alert-cooldown'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('input', () => {
         if (!dirty) { dirty = true; if (saveBar) saveBar.style.transform = 'translateY(0)'; }
-        const as = document.getElementById('active-silica');
-        if (as && id === 'silica-interval') as.textContent = el.value + 'd';
     });
 });
 
 window.resetThresholds = function() {
     if (critSlider) critSlider.value = initialCrit;
     if (warnSlider) warnSlider.value = initialWarn;
-    // Reset silica + emails
-    const si = document.getElementById('silica-interval');
+    // Reset emails + temp range + cooldown
     const ne = document.getElementById('notify-emails');
-    if (si) si.value = {{ $silicaDays }};
+    const tmin = document.getElementById('temp-min');
+    const tmax = document.getElementById('temp-max');
+    const cd = document.getElementById('alert-cooldown');
     if (ne) ne.value = '{{ addslashes($notifyList) }}';
+    if (tmin) tmin.value = '{{ $settings?->temp_min }}';
+    if (tmax) tmax.value = '{{ $settings?->temp_max }}';
+    if (cd) cd.value = {{ $settings?->alert_cooldown_minutes ?? 30 }};
     dirty = false;
     if (saveBar) saveBar.style.transform = 'translateY(100%)';
     updateMarkers();

@@ -1,12 +1,12 @@
 @extends('layouts.app')
 
-@section('title', 'Analytics & Trends | DryBox AI')
+@section('title', 'Analytics & Trends | Incognito')
 
 @php
 $warnThresh   = $settings?->warn_humidity ?? 35;
 $critThresh   = $settings?->crit_humidity ?? 45;
 $firebasePath = $primary?->firebase_path ?? 'drybox';
-$deviceName   = $primary?->name ?? 'DryBox';
+$deviceName   = $primary?->name ?? 'Dry Box';
 @endphp
 
 @section('content')
@@ -31,9 +31,6 @@ $deviceName   = $primary?->name ?? 'DryBox';
                 <div class="w-2 h-2 rounded-full bg-slate-300 animate-pulse" id="conn-dot"></div>
                 <span class="font-medium text-slate-500 text-xs" id="conn-label">Connecting…</span>
             </div>
-            <button onclick="exportSessionCSV()" class="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 border border-outline-variant rounded-xl text-sm font-semibold hover:bg-slate-200 transition-colors">
-                <span class="material-symbols-outlined text-sm">download</span> Export Session
-            </button>
         </div>
     </div>
 
@@ -76,11 +73,11 @@ $deviceName   = $primary?->name ?? 'DryBox';
                 {{-- Date range filter --}}
                 <form method="GET" action="{{ route('analytics') }}" class="flex items-center gap-2 flex-wrap">
                     <input type="date" name="from" value="{{ $from->format('Y-m-d') }}"
-                           max="{{ now()->format('Y-m-d') }}"
+                           max="{{ now(config('app.display_timezone'))->format('Y-m-d') }}"
                            class="px-2.5 py-1.5 border border-outline-variant rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <span class="text-xs text-slate-400">to</span>
                     <input type="date" name="to" value="{{ $to->format('Y-m-d') }}"
-                           max="{{ now()->format('Y-m-d') }}"
+                           max="{{ now(config('app.display_timezone'))->format('Y-m-d') }}"
                            class="px-2.5 py-1.5 border border-outline-variant rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/30">
                     <button type="submit" class="px-3 py-1.5 bg-primary text-white rounded-lg text-xs font-semibold hover:opacity-90 transition-colors">
                         Apply
@@ -99,11 +96,11 @@ $deviceName   = $primary?->name ?? 'DryBox';
             </div>
             <div class="flex items-center gap-6 mt-4 pt-4 border-t border-slate-100">
                 <div class="flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full bg-primary"></span>
+                    <span class="w-3 h-3 rounded-full bg-silica-500"></span>
                     <span class="text-xs font-semibold text-on-surface-variant uppercase">Humidity (%)</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full bg-orange-400"></span>
+                    <span class="w-3 h-3 rounded-full bg-slate-400"></span>
                     <span class="text-xs font-semibold text-on-surface-variant uppercase">Temperature (°C)</span>
                 </div>
                 <span class="ml-auto text-xs text-slate-400">{{ $historyData->count() }} hourly data points</span>
@@ -156,31 +153,6 @@ $deviceName   = $primary?->name ?? 'DryBox';
         </div>
     </section>
 
-    {{-- ── Event Log ────────────────────────────────────────────── --}}
-    <div class="bg-white border border-outline-variant rounded-xl overflow-hidden">
-        <div class="p-md border-b border-slate-100 flex justify-between items-center">
-            <h3 class="font-title-sm text-title-sm text-on-surface">Live Event Log</h3>
-            <button onclick="clearLog()" class="text-xs font-bold text-slate-400 hover:text-primary uppercase tracking-widest transition-colors">Clear Log</button>
-        </div>
-        <div class="overflow-x-auto">
-            <table class="w-full text-left">
-                <thead class="bg-surface-container-low">
-                    <tr>
-                        <th class="px-md py-sm font-label-caps text-label-caps text-outline uppercase">Sensor</th>
-                        <th class="px-md py-sm font-label-caps text-label-caps text-outline uppercase">Reading</th>
-                        <th class="px-md py-sm font-label-caps text-label-caps text-outline uppercase">Status</th>
-                        <th class="px-md py-sm font-label-caps text-label-caps text-outline uppercase">Time</th>
-                    </tr>
-                </thead>
-                <tbody id="analytics-log" class="divide-y divide-slate-100">
-                    <tr>
-                        <td colspan="4" class="px-md py-8 text-center text-sm text-slate-400">Waiting for Firebase data…</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
     {{-- ── Condition Report Generator ───────────────────────────── --}}
     <section class="bg-white border border-outline-variant rounded-xl p-md">
         <div class="flex items-start gap-4 mb-6">
@@ -197,33 +169,48 @@ $deviceName   = $primary?->name ?? 'DryBox';
         </div>
 
         @if($primary)
-        <form action="{{ route('report.generate') }}" method="GET" class="flex flex-wrap gap-4 items-end">
-            <input type="hidden" name="device_id" value="{{ $primary->id }}">
+        <form id="report-form" class="flex flex-wrap gap-4 items-end" onsubmit="return false;">
+            <input type="hidden" id="report-device-id" value="{{ $primary->id }}">
 
             {{-- From date --}}
             <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">From</label>
-                <input type="date" name="from"
-                       value="{{ now()->subDays(30)->format('Y-m-d') }}"
-                       max="{{ now()->format('Y-m-d') }}"
+                <input type="date" id="report-from"
+                       value="{{ now(config('app.display_timezone'))->subDays(30)->format('Y-m-d') }}"
+                       max="{{ now(config('app.display_timezone'))->format('Y-m-d') }}"
                        class="px-3 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
             </div>
 
             {{-- To date --}}
             <div>
                 <label class="block text-xs font-semibold text-slate-600 mb-1.5">To</label>
-                <input type="date" name="to"
-                       value="{{ now()->format('Y-m-d') }}"
-                       max="{{ now()->format('Y-m-d') }}"
+                <input type="date" id="report-to"
+                       value="{{ now(config('app.display_timezone'))->format('Y-m-d') }}"
+                       max="{{ now(config('app.display_timezone'))->format('Y-m-d') }}"
                        class="px-3 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
             </div>
 
-            <button type="submit"
-                    class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 transition-colors shadow-sm shadow-primary/20">
+            <button type="button" onclick="downloadCsvReport()"
+                    class="flex items-center gap-2 px-6 py-2.5 bg-slate-100 text-slate-700 border border-outline-variant rounded-xl text-sm font-bold hover:bg-slate-200 transition-colors">
                 <span class="material-symbols-outlined text-sm">download</span>
-                Download CSV Report
+                Download CSV
             </button>
+
+            {{-- Grouped together: the checkbox only affects the email action, not the CSV download above --}}
+            <div class="flex flex-col gap-1.5">
+                <button type="button" onclick="emailReport()" id="email-report-btn"
+                        class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-90 transition-colors shadow-sm shadow-primary/20">
+                    <span class="material-symbols-outlined text-sm">mail</span>
+                    Email Me This Report
+                </button>
+                <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+                    <input type="checkbox" id="report-include-csv" class="rounded border-outline-variant text-primary focus:ring-primary/30">
+                    Include CSV attachment
+                </label>
+            </div>
         </form>
+
+        <div id="report-result" class="hidden mt-4 p-3 rounded-xl border text-sm"></div>
 
         {{-- DB Stats row --}}
         @if(!empty($dbStats))
@@ -239,13 +226,13 @@ $deviceName   = $primary?->name ?? 'DryBox';
             <div>
                 <p class="font-label-caps text-label-caps text-on-surface-variant mb-1">FIRST READING</p>
                 <p class="text-sm font-semibold text-on-surface">
-                    {{ $dbStats['earliest'] ? \Carbon\Carbon::parse($dbStats['earliest'])->format('d M Y, H:i') : '—' }}
+                    {{ $dbStats['earliest'] ? \Carbon\Carbon::parse($dbStats['earliest'], 'UTC')->timezone(config('app.display_timezone'))->format('d M Y, H:i') : '—' }}
                 </p>
             </div>
             <div>
                 <p class="font-label-caps text-label-caps text-on-surface-variant mb-1">LATEST READING</p>
                 <p class="text-sm font-semibold text-on-surface">
-                    {{ $dbStats['latest'] ? \Carbon\Carbon::parse($dbStats['latest'])->format('d M Y, H:i') : '—' }}
+                    {{ $dbStats['latest'] ? \Carbon\Carbon::parse($dbStats['latest'], 'UTC')->timezone(config('app.display_timezone'))->format('d M Y, H:i') : '—' }}
                 </p>
             </div>
         </div>
@@ -269,6 +256,8 @@ $deviceName   = $primary?->name ?? 'DryBox';
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 
 <script>
+const CSRF = '{{ csrf_token() }}';
+
 // ── DB history data (server-rendered) ────────────────────────
 @php
     $chartLabels = $historyData->map(fn($r) => \Carbon\Carbon::parse($r->hour)->format('d M H:i'));
@@ -286,8 +275,8 @@ const analyticsChart = new Chart(ctx, {
     data: {
         labels: dbLabels,
         datasets: [
-            { label: 'Humidity (%)',     data: dbHum,  borderColor: '#003178', backgroundColor: 'rgba(0,49,120,0.07)', fill: true, tension: 0.4, pointRadius: dbLabels.length > 72 ? 0 : 3, borderWidth: 2.5, yAxisID: 'yHum' },
-            { label: 'Temperature (°C)', data: dbTemp, borderColor: '#f97316', backgroundColor: 'rgba(249,115,22,0.05)', fill: true, tension: 0.4, pointRadius: dbLabels.length > 72 ? 0 : 3, borderWidth: 2.5, yAxisID: 'yTemp' },
+            { label: 'Humidity (%)',     data: dbHum,  borderColor: '#c2410c', backgroundColor: 'rgba(255,122,41,0.08)', fill: true, tension: 0.4, pointRadius: dbLabels.length > 72 ? 0 : 3, borderWidth: 2.5, yAxisID: 'yHum' },
+            { label: 'Temperature (°C)', data: dbTemp, borderColor: '#8a958e', backgroundColor: 'rgba(138,149,142,0.06)', fill: true, tension: 0.4, pointRadius: dbLabels.length > 72 ? 0 : 3, borderWidth: 2.5, yAxisID: 'yTemp' },
         ]
     },
     options: {
@@ -306,7 +295,7 @@ const analyticsChart = new Chart(ctx, {
     }
 });
 
-// ── Firebase (live snapshot panel + event log only) ───────────
+// ── Firebase (live snapshot panel) ─────────────────────────────
 const firebaseConfig = {
     apiKey:      "{{ config('firebase.api_key') }}",
     databaseURL: "{{ config('firebase.database_url') }}",
@@ -314,12 +303,8 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const CRIT_THRESH = {{ $critThresh }};
-const WARN_THRESH = {{ $warnThresh }};
 const connDot     = document.getElementById('conn-dot');
 const connLabel   = document.getElementById('conn-label');
-const logEl       = document.getElementById('analytics-log');
-const logRows     = [];
 
 db.ref('.info/connected').on('value', snap => {
     const live = snap.val() === true;
@@ -341,47 +326,65 @@ db.ref("{{ $firebasePath }}").on("value", snapshot => {
     document.getElementById('snap-temp').innerHTML     = `${temp.toFixed(1)}<span class="text-sm">°C</span>`;
     document.getElementById('snap-status').textContent = stat;
     document.getElementById('snap-time').textContent   = time;
-
-    const isCrit = hum > CRIT_THRESH;
-    const isWarn = !isCrit && hum > WARN_THRESH;
-    const badge  = isCrit
-        ? '<span class="px-2 py-1 bg-red-100 text-red-700 text-[10px] font-bold uppercase rounded-lg">Critical</span>'
-        : isWarn
-            ? '<span class="px-2 py-1 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase rounded-lg">Warning</span>'
-            : '<span class="px-2 py-1 bg-emerald-100 text-emerald-700 text-[10px] font-bold uppercase rounded-lg">Safe</span>';
-    const icon  = isCrit ? 'crisis_alert' : isWarn ? 'warning' : 'check_circle';
-    const color = isCrit ? 'text-red-500'  : isWarn ? 'text-amber-500' : 'text-emerald-500';
-
-    logRows.unshift(`
-      <tr class="hover:bg-slate-50 transition-colors">
-        <td class="px-md py-3 text-sm font-semibold text-blue-900">{{ $deviceName }}</td>
-        <td class="px-md py-3">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-sm ${color}">${icon}</span>
-            <span class="text-sm">Hum ${hum.toFixed(1)}% · Temp ${temp.toFixed(1)}°C</span>
-          </div>
-        </td>
-        <td class="px-md py-3">${badge}</td>
-        <td class="px-md py-3 text-xs text-slate-400">${time}</td>
-      </tr>`);
-    if (logRows.length > 15) logRows.pop();
-    logEl.innerHTML = logRows.join('');
 });
 
-// ── Export chart data as CSV ──────────────────────────────────
-window.exportSessionCSV = function() {
-    if (!dbLabels.length) { alert('No data in the selected range.'); return; }
-    let csv = 'Hour,Avg Humidity (%),Avg Temperature (°C)\n';
-    dbLabels.forEach((l, i) => csv += `${l},${dbHum[i] ?? ''},${dbTemp[i] ?? ''}\n`);
-    const a    = document.createElement('a');
-    a.href     = 'data:text/csv,' + encodeURIComponent(csv);
-    a.download = `drybox-history-{{ $from->format('Y-m-d') }}-{{ $to->format('Y-m-d') }}.csv`;
-    a.click();
+// ── Condition Report (CSV download / emailed report) ──────────
+function reportParams() {
+    return {
+        device_id: document.getElementById('report-device-id')?.value,
+        from: document.getElementById('report-from')?.value,
+        to: document.getElementById('report-to')?.value,
+    };
+}
+
+window.downloadCsvReport = function() {
+    const p = reportParams();
+    if (!p.from || !p.to) { alert('Pick a from/to date first.'); return; }
+    const qs = new URLSearchParams(p).toString();
+    window.location.href = `{{ route('report.generate') }}?${qs}`;
 };
 
-window.clearLog = function() {
-    logRows.length = 0;
-    logEl.innerHTML = '<tr><td colspan="4" class="px-md py-8 text-center text-sm text-slate-400">Log cleared.</td></tr>';
+window.emailReport = async function() {
+    const p = reportParams();
+    if (!p.from || !p.to) { alert('Pick a from/to date first.'); return; }
+
+    const btn = document.getElementById('email-report-btn');
+    const includeCsv = document.getElementById('report-include-csv')?.checked ?? false;
+    const resultEl = document.getElementById('report-result');
+
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="material-symbols-outlined text-sm animate-spin">autorenew</span> Sending…';
+    resultEl.classList.add('hidden');
+
+    try {
+        const resp = await fetch(`{{ route('report.email') }}`, {
+            method:  'POST',
+            headers: {
+                'X-CSRF-TOKEN':  CSRF,
+                'Accept':        'application/json',
+                'Content-Type':  'application/json',
+            },
+            body: JSON.stringify({ ...p, include_csv: includeCsv }),
+        });
+        const json = await resp.json();
+
+        resultEl.classList.remove('hidden');
+        if (resp.ok && json.success) {
+            resultEl.className = 'mt-4 p-3 rounded-xl border text-sm bg-emerald-50 border-emerald-200 text-emerald-700';
+            resultEl.textContent = `Report queued — it'll land in your inbox shortly${includeCsv ? ' with the CSV attached' : ''}.`;
+        } else {
+            resultEl.className = 'mt-4 p-3 rounded-xl border text-sm bg-red-50 border-red-200 text-red-700';
+            resultEl.textContent = json.message || 'Something went wrong requesting the report.';
+        }
+    } catch {
+        resultEl.classList.remove('hidden');
+        resultEl.className = 'mt-4 p-3 rounded-xl border text-sm bg-red-50 border-red-200 text-red-700';
+        resultEl.textContent = 'Something went wrong requesting the report — please try again.';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
 };
 </script>
 @endsection

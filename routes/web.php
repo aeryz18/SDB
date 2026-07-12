@@ -49,12 +49,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/analytics', [DryBoxController::class, 'analytics'])->name('analytics');
 
     Route::get('/report', [ReportController::class, 'generate'])->name('report.generate');
+    Route::post('/report/email', [ReportController::class, 'emailReport'])->name('report.email');
 
     Route::post('/devices', [DeviceController::class, 'store'])->name('devices.store');
     Route::delete('/devices/{device}', [DeviceController::class, 'destroy'])->name('devices.destroy');
     Route::post('/devices/{device}/silica', [DeviceController::class, 'markSilicaReplaced'])->name('devices.silica');
     Route::delete('/devices/{device}/silica/{replacement}', [DeviceController::class, 'undoSilicaReplacement'])->name('devices.silica.undo');
     Route::post('/devices/{device}/silica-next-replacement', [DeviceController::class, 'updateSilicaNextReplacementAt'])->name('devices.silica.next-replacement');
+    Route::post('/devices/{device}/silica-interval', [DeviceController::class, 'updateSilicaInterval'])->name('devices.silica.interval');
     Route::post('/devices/{device}/silica-ai-suggestion', [DeviceController::class, 'getSilicaAiSuggestion'])->name('devices.silica.ai-suggestion');
     Route::post('/devices/{device}/protection', [DeviceController::class, 'toggleProtection'])->name('devices.protection');
 });

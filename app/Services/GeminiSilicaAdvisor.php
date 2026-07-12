@@ -70,12 +70,15 @@ class GeminiSilicaAdvisor
 
         $today = now()->format('Y-m-d');
 
+        $warnHumidity = $settings?->warn_humidity ?? 35;
+        $critHumidity = $settings?->crit_humidity ?? 45;
+
         return <<<PROMPT
         You are assisting with silica gel desiccant replacement scheduling for an IoT dry-storage box named "{$device->name}".
 
-        Today's date is {$today}. The suggested date must be on or after today.
+        Today's date is {$today}. This suggestion is being requested while replacing the silica gel today, so the date you suggest is for the NEXT replacement after today's — it must be strictly after today, never today itself, even if the current replacement is overdue (being overdue explains why the box needed replacing today, not when the next one is due).
 
-        Current configured replacement interval: {$interval} days.
+        The user's currently configured interval is {$interval} days — treat this only as a fallback reference point, not as the answer. Your job is to independently recommend the best date based on the evidence below, which may be shorter, longer, or the same as {$interval} days.
 
         Replacement history (most recent first):
         {$historyLines}
@@ -86,6 +89,12 @@ class GeminiSilicaAdvisor
         - Average temperature: {$avgT}°C
         - Peak temperature: {$maxT}°C
         - Readings analyzed: {$stats->cnt}
+        - Configured thresholds: warning at {$warnHumidity}%, critical at {$critHumidity}%
+
+        Weigh the evidence, don't just default to today + {$interval} days:
+        - If replacement history shows a consistent pattern across multiple entries of the gel lasting notably shorter or longer than {$interval} days, factor that in.
+        - Treat very sparse or clearly anomalous history (e.g., only 1-2 entries, or intervals of just a day or two) with skepticism — that's more likely leftover testing/demo activity than a real desiccant lifecycle pattern. Don't let it dominate your answer, but do mention the uncertainty in your reasoning.
+        - If peak humidity is at or above the warning/critical threshold, that's a genuine physical signal the gel may be saturating faster than the interval assumes, even if the average looks fine — weigh peaks, not just the average.
 
         Based on this data, suggest the next silica gel replacement date and briefly explain why in 2-3 sentences.
         Respond with ONLY a JSON object in exactly this shape, no markdown fences, no extra text:

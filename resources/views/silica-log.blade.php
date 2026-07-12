@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Silica Gel Log | DryBox AI')
+@section('title', 'Silica Gel Log | Incognito')
 
 @section('content')
 <div class="max-w-5xl mx-auto space-y-md">
@@ -17,7 +17,7 @@
     <div class="col-span-full py-16 flex flex-col items-center justify-center text-slate-400 bg-white border border-outline-variant rounded-xl">
         <span class="material-symbols-outlined text-5xl mb-3 text-slate-300">science</span>
         <p class="font-semibold text-slate-500 mb-1">No unit registered yet</p>
-        <p class="text-sm">Add your DryBox unit on the Device page to start tracking silica gel replacement.</p>
+        <p class="text-sm">Add your dry box unit on the Device page to start tracking silica gel replacement.</p>
     </div>
     @else
 
@@ -92,45 +92,69 @@
         </div>
     </section>
 
-    {{-- ── Edit the replacement date/reminder (no new replacement logged) ── --}}
+    {{-- ── Replacement Schedule (interval + optional manual override) ── --}}
     <section class="bg-white border border-outline-variant rounded-xl p-6">
-        <h2 class="font-headline-md text-headline-md text-on-surface mb-1">Update Replacement Date</h2>
-        <p class="text-sm text-on-surface-variant mb-4">
-            Just edits the date and reminder shown above — the gel itself hasn't been replaced yet, so nothing is added to the history below. Use <strong>Replace Silica Gel</strong> instead once you've actually swapped it.
+        <h2 class="font-headline-md text-headline-md text-on-surface mb-1">Replacement Schedule</h2>
+        <p class="text-sm text-on-surface-variant mb-6">
+            The next due date is estimated automatically from the interval below, unless a custom date is set to override it. Neither of these logs a new replacement — use <strong>Replace Silica Gel</strong> above once you've actually swapped the gel.
         </p>
-        <form id="next-replacement-form" class="flex flex-col sm:flex-row gap-3 items-start sm:items-end flex-wrap" onsubmit="return false;">
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="next-replacement-date">New target date</label>
-                <input
-                    type="date"
-                    id="next-replacement-date"
-                    value="{{ $silica['source'] === 'manual' ? $silica['due_date']->format('Y-m-d') : '' }}"
-                    class="px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-                <p class="text-[11px] text-slate-400 mt-1 max-w-[220px]">Or click "Clear Custom Date" below to go back to the automatic {{ $silica['interval'] }}-day estimate.</p>
-            </div>
-            <div>
-                <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="next-replacement-notify">Remind me this many days before</label>
+
+        {{-- Automatic interval --}}
+        <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1.5" for="silica-interval-days">Automatic interval</label>
+            <div class="flex items-center gap-2">
                 <input
                     type="number"
-                    id="next-replacement-notify"
+                    id="silica-interval-days"
                     min="1" max="365"
-                    value="{{ $silica['notify_days_before'] }}"
+                    value="{{ $device->settings->silica_interval_days }}"
                     class="w-28 px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
-            </div>
-            <div class="flex gap-2">
-                <button type="button" onclick="saveNextReplacementDate({{ $device->id }})" id="save-date-btn"
-                        class="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-colors">
-                    Save Plan
+                <span class="text-sm text-slate-400">days after last replacement</span>
+                <button type="button" onclick="saveSilicaInterval({{ $device->id }})" id="save-interval-btn"
+                        class="ml-auto px-4 py-2.5 bg-slate-100 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-200 transition-colors">
+                    Save
                 </button>
-                @if($silica['source'] === 'manual')
-                <button type="button" onclick="clearNextReplacementDate({{ $device->id }})" id="clear-date-btn"
-                        title="Removes your custom date and switches back to the automatic {{ $silica['interval'] }}-day estimate"
-                        class="px-4 py-2.5 border border-outline-variant text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors">
-                    Clear Custom Date
-                </button>
-                @endif
             </div>
-        </form>
+        </div>
+
+        <div class="my-6 border-t border-slate-100"></div>
+
+        {{-- Custom override date --}}
+        <div>
+            <p class="text-xs font-semibold text-slate-600 mb-1.5">Custom override date <span class="font-normal text-slate-400">(optional — takes priority over the automatic interval)</span></p>
+            <form id="next-replacement-form" class="flex flex-col sm:flex-row gap-3 items-start sm:items-end flex-wrap" onsubmit="return false;">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 mb-1.5" for="next-replacement-date">Target date</label>
+                    <input
+                        type="date"
+                        id="next-replacement-date"
+                        value="{{ $silica['source'] === 'manual' ? $silica['due_date']->format('Y-m-d') : '' }}"
+                        class="px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 mb-1.5" for="next-replacement-notify">Remind me this many days before</label>
+                    <input
+                        type="number"
+                        id="next-replacement-notify"
+                        min="1" max="365"
+                        value="{{ $silica['notify_days_before'] }}"
+                        class="w-28 px-4 py-2.5 border border-outline-variant rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-colors">
+                </div>
+                <div class="flex gap-2">
+                    <button type="button" onclick="saveNextReplacementDate({{ $device->id }})" id="save-date-btn"
+                            class="px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:opacity-90 transition-colors">
+                        Save Plan
+                    </button>
+                    @if($silica['source'] === 'manual')
+                    <button type="button" onclick="clearNextReplacementDate({{ $device->id }})" id="clear-date-btn"
+                            title="Removes your custom date and switches back to the automatic {{ $silica['interval'] }}-day estimate"
+                            class="px-4 py-2.5 border border-outline-variant text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors">
+                        Clear Custom Date
+                    </button>
+                    @endif
+                </div>
+            </form>
+        </div>
     </section>
 
     {{-- ── Replacement History ──────────────────────────────────────── --}}
@@ -138,7 +162,7 @@
         <h2 class="font-headline-md text-headline-md text-on-surface mb-4">Replacement History</h2>
         @forelse($silicaHistory as $entry)
         <div class="flex justify-between text-sm py-3 border-b border-slate-100 last:border-0">
-            <span class="text-slate-700 font-medium">{{ $entry->replaced_at->format('d M Y') }}</span>
+            <span class="text-slate-700 font-medium">{{ $entry->replaced_at->copy()->timezone(config('app.display_timezone'))->format('d M Y') }}</span>
             <span class="text-slate-400">
                 {{ $entry->interval_days_actual !== null ? $entry->interval_days_actual . 'd since previous' : 'first recorded replacement' }}
             </span>
@@ -181,16 +205,16 @@
 
                     <div>
                         <button type="button" onclick="askAiInModal({{ $device->id }})" id="replace-ai-btn"
-                                class="text-xs px-3 py-1.5 rounded-lg border border-blue-200 text-blue-700 font-semibold hover:bg-blue-50 transition-colors inline-flex items-center gap-1.5">
+                                class="text-xs px-3 py-1.5 rounded-lg border border-silica-200 text-silica-700 font-semibold hover:bg-silica-50 transition-colors inline-flex items-center gap-1.5">
                             <span class="material-symbols-outlined" style="font-size:16px">auto_awesome</span>
                             Ask AI for a suggestion
                         </button>
 
-                        <div id="replace-ai-box" class="hidden mt-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-900">
+                        <div id="replace-ai-box" class="hidden mt-3 px-4 py-3 bg-silica-50 border border-silica-200 rounded-xl text-sm text-silica-900">
                             <p class="font-semibold" id="replace-ai-date"></p>
-                            <p class="mt-1 text-blue-800" id="replace-ai-reasoning"></p>
+                            <p class="mt-1 text-silica-800" id="replace-ai-reasoning"></p>
                             <button type="button" onclick="useAiSuggestion()"
-                                    class="mt-2 text-xs px-3 py-1.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition-colors">
+                                    class="mt-2 text-xs px-3 py-1.5 rounded-lg bg-silica-600 text-white font-semibold hover:bg-silica-700 transition-colors">
                                 Use this date
                             </button>
                         </div>
@@ -347,7 +371,7 @@ function showSilicaToast(message, undoFn) {
     t.innerHTML = `
         <span class="material-symbols-outlined text-emerald-400" style="font-size:18px">check_circle</span>
         <span>${message}</span>
-        <button class="text-blue-300 hover:text-blue-100 underline" id="silica-toast-undo">Undo</button>
+        <button class="text-silica-300 hover:text-silica-100 underline" id="silica-toast-undo">Undo</button>
     `;
     document.body.appendChild(t);
 
@@ -372,6 +396,27 @@ async function undoSilicaReplacement(deviceId, replacementId) {
             headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
         });
     } catch { /* best effort — page reload below will simply show the pre-undo state */ }
+}
+
+// ── Replacement interval ────────────────────────────────────────────
+async function saveSilicaInterval(deviceId) {
+    const input = document.getElementById('silica-interval-days');
+    const btn   = document.getElementById('save-interval-btn');
+    if (!input.value || input.value < 1) { alert('Enter a valid interval in days.'); return; }
+
+    btn.disabled = true;
+    try {
+        const resp = await fetch(`/devices/${deviceId}/silica-interval`, {
+            method:  'POST',
+            headers: { 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({ interval_days: input.value }),
+        });
+        if (!resp.ok) throw new Error('request failed');
+        location.reload();
+    } catch {
+        btn.disabled = false;
+        alert('Something went wrong saving the interval — please try again.');
+    }
 }
 
 // ── Adjust next-replacement plan (standalone, no fresh replacement) ────

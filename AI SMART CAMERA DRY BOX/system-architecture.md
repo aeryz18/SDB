@@ -53,14 +53,14 @@ Two things flow out of the Controller in parallel: an **immediate local signal t
 ### 3.2 Controller
 
 - **ESP32 DevKit V1** — reads both sensors continuously (non-blocking loop; buzzer state machine and door check never wait on Wi-Fi or DHT timing).
-- Performs a **lightweight, immediate local classification**: `status = crit` if humidity > 45%, `warn` if > 35%, else `normal` (`WARN_HUM`/`CRIT_HUM` constants, mirrored from `device_settings.warn_humidity`/`crit_humidity` on the Laravel side).
+- Performs a **lightweight, immediate local classification**: `status = Critical` if humidity > `critHum`, `Warning` if > `warnHum`, else `Normal`. These thresholds start at compile-time fallback defaults and are **kept in sync with `device_settings.warn_humidity`/`crit_humidity`** via the same Firebase read-back described below — so a threshold change saved in the dashboard reaches the device without a reflash.
 - Drives the **Actuator** (OLED + buzzer) directly and instantly on door state transitions — no round-trip to the cloud needed for local feedback.
 - Streams raw readings to the **Cloud** (Firebase RTDB) every 5 seconds regardless of the local check's outcome; deliberately does **not** attempt rolling-window risk scoring itself — a microcontroller isn't the right place to hold days of history or run multi-factor scoring logic.
-- Also **reads back** the `protection_mode` flag from Firebase (currently every 2s, tunable via `PROT_CHECK_INTERVAL` — intended to be raised to 15–30s in production to reduce reads) so a toggle made in the web dashboard changes local alarm behavior.
+- Also **reads back** `protection_mode`, `warn_humidity`, `crit_humidity`, and `silica_days_left` from Firebase in a single periodic block (currently every 2s, tunable via `PROT_CHECK_INTERVAL` — intended to be raised to 15–30s in production to reduce reads), so a toggle or threshold change made in the web dashboard reaches local alarm/status behavior without a reflash. Each value is only overwritten on a successful read — offline or on read failure, the last known-good value (or compile-time default) is kept.
 
 ### 3.3 Actuator
 
-- **SSD1306 OLED (I2C, SDA=21/SCL=22)** — shows live temperature, humidity, door state + open count, and status (OK / WARN / blinking "HIGH HUMIDITY" on crit).
+- **SSD1306 OLED (I2C, SDA=21/SCL=22)** — shows live temperature, humidity, status (Normal / Warning / Critical), and a silica gel replacement countdown ("Replace in: N Days" / "Overdue by N Days").
 - **Passive buzzer (GPIO 2)** — non-blocking state machine (`updateBuzzer()`):
   - `ALARM`/`ALARM_PAUSE` — continuous beeping while protection mode is ON and the door is open.
   - `OPEN_NOTIFY`/`OPEN_GAP` — two quick ascending beeps, once, when protection mode is OFF and the door opens.
@@ -72,9 +72,9 @@ Two things flow out of the Controller in parallel: an **immediate local signal t
 This is where the real decision-making happens, split across Firebase (live state) and Laravel/MySQL (history, rules, notifications).
 
 **Firebase Realtime Database** — live sync only, no history:
-- Path `/{firebase_path}` holds `temperature`, `humidity`, `status`, `door`, `openCount`, `protection_mode`.
+- Path `/{firebase_path}` holds `temperature`, `humidity`, `status`, `door`, `openCount`, `protection_mode`, `warn_humidity`, `crit_humidity`, `silica_days_left`.
 - Browser reads this directly via the Firebase JS SDK for real-time UI updates.
-- Laravel reads it server-side once a minute (`FirebaseReader`, kreait SDK) and writes `protection_mode` when the user toggles it in the dashboard (`DeviceController::toggleProtection`).
+- Laravel reads it server-side once a minute (`FirebaseReader`, kreait SDK) and writes back config values when the user changes them in the dashboard: `protection_mode` on toggle (`DeviceController::toggleProtection`), `warn_humidity`/`crit_humidity` on Settings save (`DryBoxController::saveSettings`), and `silica_days_left` every poll cycle (`PollDeviceData::handle`).
 
 **MySQL storage (via Laravel)**
 

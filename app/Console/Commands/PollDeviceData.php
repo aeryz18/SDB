@@ -99,6 +99,13 @@ class PollDeviceData extends Command
                 if ($settings && ($settings->silica_last_replaced_at || $settings->silica_next_replacement_at)) {
                     $silica = $silicaStatus->evaluate($settings);
 
+                    // Push the day count so the ESP32's OLED can show a "Replace in: N Days" countdown
+                    try {
+                        $firebase->set($device->firebase_path.'/silica_days_left', $silica['days_left']);
+                    } catch (Throwable) {
+                        // Firebase write failure is non-fatal — MySQL/SilicaStatus remains the source of truth
+                    }
+
                     if ($silica['due']) {
                         $this->fireSilicaAlert($device, 'silica_due', sprintf(
                             'Silica gel overdue for %s by %d day(s). Replace immediately.',

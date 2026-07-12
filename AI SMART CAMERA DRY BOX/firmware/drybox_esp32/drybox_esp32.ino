@@ -49,9 +49,10 @@
 #define SCREEN_HEIGHT 64
 #define OLED_ADDR     0x3C
 
-// ─── HUMIDITY THRESHOLDS (match Laravel device_settings) ─────────────────────
-#define WARN_HUM   35.0
-#define CRIT_HUM   45.0
+// ─── HUMIDITY THRESHOLDS (match Laravel device_settings; overwritten by ─────
+// Firebase read-back below once connected — see "READ CONFIG from Firebase") ──
+float warnHum = 60.0;   // offline/fallback default until first successful Firebase read
+float critHum = 70.0;
 
 // ─── OBJECTS ─────────────────────────────────────────────────────────────────
 FirebaseData     fbdo;
@@ -74,6 +75,9 @@ bool   prevDoorOpen = false;
 bool          protectionMode    = false;
 unsigned long lastProtCheckMs   = 0;
 #define PROT_CHECK_INTERVAL     2000    // re-read from Firebase every 2s (was 30s — shortened for testing; raise back to 15000-30000 for production to reduce Firebase reads)
+
+// ─── SILICA GEL REPLACEMENT COUNTDOWN (read from Firebase) ──────────────────
+int silicaDaysLeft = 9999;   // sentinel: "not yet synced from Firebase" — real values are roughly -3650..3650
 
 // ─── BUZZER STATE MACHINE ────────────────────────────────────────────────────
 // ALARM/ALARM_PAUSE : continuous beeping (protection mode ON, door open)
@@ -358,9 +362,9 @@ void loop() {
 
   // ── STATUS (matches Laravel thresholds) ───────────────────────────────────
   String status;
-  if (lastHum > CRIT_HUM)      status = "crit";
-  else if (lastHum > WARN_HUM) status = "warn";
-  else                          status = "normal";
+  if (lastHum > critHum)      status = "Critical";
+  else if (lastHum > warnHum) status = "Warning";
+  else                          status = "Normal";
 
   // ── BLINK for OLED warning ────────────────────────────────────────────────
   if (now - lastBlinkMs > 500) {
@@ -377,30 +381,31 @@ void loop() {
   display.println("Smart Dry Box");
   display.drawLine(0, 10, 128, 10, SSD1306_WHITE);
 
-  display.setCursor(0, 14);
-  display.print("Temp: ");
+  display.setCursor(0, 16);
+  display.print("Temperature: ");
   display.print(lastTemp, 1);
-  display.print(" C");
+  display.print("C");
 
-  display.setCursor(0, 26);
-  display.print("Hum : ");
+  display.setCursor(0, 28);
+  display.print("Humidity: ");
   display.print(lastHum, 1);
-  display.print(" %");
+  display.print("%");
 
-  display.setCursor(0, 38);
-  display.print("Door: ");
-  display.print(doorState);
-  display.print(" (");
-  display.print(openCount);
-  display.print("x)");
+  display.setCursor(0, 40);
+  display.print("Status: ");
+  display.print(status);
 
   display.setCursor(0, 52);
-  if (status == "crit" && blinkState) {
-    display.print("!! HIGH HUMIDITY !!");
-  } else if (status == "warn") {
-    display.print("Status: WARN");
+  if (silicaDaysLeft >= 9999) {
+    display.print("Replace: --");
+  } else if (silicaDaysLeft <= 0) {
+    display.print("Overdue by ");
+    display.print(-silicaDaysLeft);
+    display.print(" Days");
   } else {
-    display.print("Status: OK");
+    display.print("Replace in: ");
+    display.print(silicaDaysLeft);
+    display.print(" Days");
   }
 
   display.display();
@@ -428,12 +433,22 @@ void loop() {
                   lastTemp, lastHum, status.c_str(), doorState.c_str(), openCount);
   }
 
-  // ── READ protection_mode from Firebase every 30 seconds ───────────────────
+  // ── READ CONFIG from Firebase every 30 seconds ────────────────────────────
+  // protection_mode + humidity thresholds + silica countdown — same cadence, same block.
   if (now - lastProtCheckMs > PROT_CHECK_INTERVAL && Firebase.ready()) {
     lastProtCheckMs = now;
     bool prevProtectionMode = protectionMode;
     if (Firebase.RTDB.getBool(&fbdo, String(FIREBASE_PATH) + "/protection_mode", &protectionMode)) {
       Serial.printf("[Firebase] protection_mode = %s\n", protectionMode ? "ON" : "OFF");
+    }
+    if (Firebase.RTDB.getFloat(&fbdo, String(FIREBASE_PATH) + "/warn_humidity", &warnHum)) {
+      Serial.printf("[Firebase] warn_humidity = %.1f\n", warnHum);
+    }
+    if (Firebase.RTDB.getFloat(&fbdo, String(FIREBASE_PATH) + "/crit_humidity", &critHum)) {
+      Serial.printf("[Firebase] crit_humidity = %.1f\n", critHum);
+    }
+    if (Firebase.RTDB.getInt(&fbdo, String(FIREBASE_PATH) + "/silica_days_left", &silicaDaysLeft)) {
+      Serial.printf("[Firebase] silica_days_left = %d\n", silicaDaysLeft);
     }
 
     // Protection mode changed (or is ON) while the door is ALREADY open — the

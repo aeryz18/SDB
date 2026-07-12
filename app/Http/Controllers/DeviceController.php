@@ -144,6 +144,28 @@ class DeviceController extends Controller
         return response()->json(['success' => true] + app(SilicaStatus::class)->evaluate($device->settings->refresh()));
     }
 
+    public function updateSilicaInterval(Request $request, Device $device)
+    {
+        abort_unless($device->user_id === auth()->id(), 403);
+
+        $validated = $request->validate([
+            'interval_days' => ['required', 'integer', 'min:1', 'max:365'],
+        ]);
+
+        $device->settings->update(['silica_interval_days' => $validated['interval_days']]);
+
+        // The interval affects the auto-computed due date — resolve outstanding
+        // silica_due/silica_upcoming alerts so PollDeviceData's fire-once-per-cycle
+        // guard re-arms against the new due date, same reasoning as
+        // updateSilicaNextReplacementAt().
+        $device->alerts()
+            ->whereIn('type', ['silica_due', 'silica_upcoming'])
+            ->whereNull('resolved_at')
+            ->update(['resolved_at' => now()]);
+
+        return response()->json(['success' => true] + app(SilicaStatus::class)->evaluate($device->settings->refresh()));
+    }
+
     public function getSilicaAiSuggestion(Device $device, GeminiSilicaAdvisor $advisor)
     {
         abort_unless($device->user_id === auth()->id(), 403);

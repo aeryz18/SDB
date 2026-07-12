@@ -16,6 +16,27 @@ class AlertEvaluator
         $settings = $device->settings;
         $triggered = [];
 
+        // Humidity
+        if ($reading->humidity !== null) {
+            if ((float) $reading->humidity > (float) $settings->crit_humidity) {
+                if ($this->shouldAlert($device, 'humidity_crit')) {
+                    $triggered[] = [
+                        'type' => 'humidity_crit',
+                        'message' => "Humidity critical at {$device->name}: {$reading->humidity}% (critical: {$settings->crit_humidity}%)",
+                        'value' => $reading->humidity,
+                    ];
+                }
+            } elseif ((float) $reading->humidity > (float) $settings->warn_humidity) {
+                if ($this->shouldAlert($device, 'humidity_warn')) {
+                    $triggered[] = [
+                        'type' => 'humidity_warn',
+                        'message' => "Humidity warning at {$device->name}: {$reading->humidity}% (warning: {$settings->warn_humidity}%)",
+                        'value' => $reading->humidity,
+                    ];
+                }
+            }
+        }
+
         // Temperature
         if ($reading->temperature !== null) {
             if ($settings->temp_max !== null && (float) $reading->temperature > (float) $settings->temp_max) {
